@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../models/user.dart';
 import '../auth_screen.dart';
+import '../constants/app_colors.dart';
+import '../widgets/shared/app_sidebar.dart';
+
 
 class AdminDashboard extends StatefulWidget {
   final User user;
@@ -27,7 +30,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background,
       body: Row(
         children: [
           _buildSidebar(),
@@ -40,188 +43,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildSidebar() {
-    return Container(
-      width: 290,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ALERT MATE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Drowsiness Detection',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'admin',
-                    style: TextStyle(
-                      color: Color(0xFF6366F1),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Back to Role Selection',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildMenuItem(Icons.dashboard_outlined, 'Dashboard', 0),
-          _buildMenuItem(Icons.phone_outlined, 'Emergency', 1),
-          const Spacer(),
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Color(0xFF6366F1),
-                      child: Text(
-                        'J',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'John Doe',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            'wahb@gmail.com',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.notifications_outlined, size: 20, color: Colors.grey[600]),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AuthScreen()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.exit_to_app, size: 18, color: Colors.grey[700]),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Sign Out',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AppSidebar(
+      role: 'admin',
+      user: widget.user,
+      selectedIndex: _selectedIndex,
+      onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+      menuItems: const [
+        MenuItem(icon: Icons.dashboard_outlined, title: 'Dashboard'),
+        MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+      ],
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final bool isSelected = _selectedIndex == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFEEF2FF) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? const Color(0xFF6366F1) : Colors.grey[700],
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: isSelected ? const Color(0xFF6366F1) : Colors.grey[800],
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmergency() {
     return SingleChildScrollView(
@@ -250,7 +83,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
             Row(
               children: [
-                Expanded(child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, const Color(0xFF2196F3), const Color(0xFFE3F2FD))),
+                Expanded(child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.primary, const Color(0xFFE3F2FD))),
                 const SizedBox(width: 20),
                 Expanded(child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, Colors.red, const Color(0xFFFFEBEE))),
                 const SizedBox(width: 20),
@@ -389,7 +222,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Contact'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   elevation: 0,
