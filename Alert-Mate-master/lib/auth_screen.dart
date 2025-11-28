@@ -6,6 +6,7 @@ import 'dashboards/driver_dashboard.dart';
 import 'dashboards/passenger_dashboard.dart';
 import 'dashboards/owner_dashboard.dart';
 import 'dashboards/admin_dashboard.dart';
+import 'utils/page_transitions.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({Key? key}) : super(key: key);
@@ -337,14 +338,7 @@ class _AuthScreenState extends State<AuthScreen>
 
     Navigator.pushReplacement(
       context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            dashboardScreen,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
+      FadeScalePageRoute(page: dashboardScreen),
     );
   }
 
@@ -441,7 +435,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
+                                    color: Colors.black.withValues(alpha: 0.08),
                                     blurRadius: 20,
                                     offset: const Offset(0, 4),
                                   ),
@@ -646,7 +640,7 @@ class _AuthScreenState extends State<AuthScreen>
                 boxShadow: isActive
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF3498DB).withOpacity(0.3),
+                          color: const Color(0xFF3498DB).withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -699,7 +693,7 @@ class _AuthScreenState extends State<AuthScreen>
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF3498DB).withOpacity(0.2),
+                      color: const Color(0xFF3498DB).withValues(alpha: 0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),

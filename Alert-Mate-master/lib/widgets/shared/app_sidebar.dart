@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user.dart';
 import '../../auth_screen.dart';
+import '../../utils/page_transitions.dart';
 
 /// Reusable sidebar widget for all dashboards
 /// Eliminates code duplication across admin, driver, owner, and passenger dashboards
@@ -12,6 +13,8 @@ class AppSidebar extends StatelessWidget {
   final Function(int) onMenuItemTap;
   final List<MenuItem> menuItems;
   final bool isCollapsible;
+  final Color accentColor;
+  final Color accentLightColor;
 
   const AppSidebar({
     Key? key,
@@ -21,6 +24,8 @@ class AppSidebar extends StatelessWidget {
     required this.onMenuItemTap,
     required this.menuItems,
     this.isCollapsible = true,
+    this.accentColor = AppColors.primary,
+    this.accentLightColor = AppColors.primaryLight,
   }) : super(key: key);
 
   @override
@@ -92,13 +97,13 @@ class AppSidebar extends StatelessWidget {
           Container(
             padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 14, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.primaryLight,
+              color: accentLightColor,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               collapsed ? role[0].toUpperCase() : role,
-              style: const TextStyle(
-                color: AppColors.primary,
+              style: TextStyle(
+                color: accentColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -146,37 +151,48 @@ class AppSidebar extends StatelessWidget {
     final bool isSelected = selectedIndex == index;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : 18, vertical: 2),
-      child: InkWell(
-        onTap: () => onMenuItemTap(index),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: collapsed ? MainAxisSize.min : MainAxisSize.max,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? AppColors.primary : Colors.grey[700],
-                size: 20,
-              ),
-              if (!collapsed) ...[
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      fontSize: 15,
-                    ),
+      child: AnimatedScale(
+        scale: isSelected ? 1.02 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: InkWell(
+          onTap: () => onMenuItemTap(index),
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? accentLightColor : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: collapsed ? MainAxisSize.min : MainAxisSize.max,
+              children: [
+                AnimatedRotation(
+                  turns: isSelected ? 0.1 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    icon,
+                    color: isSelected ? accentColor : Colors.grey[700],
+                    size: 20,
                   ),
                 ),
+                if (!collapsed) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 200),
+                      style: TextStyle(
+                        color: isSelected ? accentColor : AppColors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 15,
+                      ),
+                      child: Text(title),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -196,7 +212,7 @@ class AppSidebar extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: accentColor,
                     child: Text(
                       user?.firstName[0].toUpperCase() ?? 'U',
                       style: const TextStyle(
@@ -240,7 +256,7 @@ class AppSidebar extends StatelessWidget {
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const AuthScreen()),
+                      FadeScalePageRoute(page: const AuthScreen()),
                     );
                   },
                   child: Container(

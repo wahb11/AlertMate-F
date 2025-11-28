@@ -3,6 +3,8 @@ import 'dart:async';
 import 'dart:math';
 import '../models/user.dart';
 import '../auth_screen.dart';
+import '../widgets/shared/app_sidebar.dart';
+import '../constants/app_colors.dart';
 
 class PassengerDashboard extends StatefulWidget {
   final User user;
@@ -97,258 +99,152 @@ class _PassengerDashboardState extends State<PassengerDashboard>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Row(
-              children: [
-                _buildSidebar(),
-                Expanded(
-                  child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Container(
-      width: 290,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.background,
+      body: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ALERT\nMATE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Drowsiness Detection',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3E5F5),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'passenger',
-                    style: TextStyle(
-                      color: Color(0xFF9B59B6),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          AppSidebar(
+            role: 'passenger',
+            user: widget.user,
+            selectedIndex: _selectedIndex,
+            onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+            menuItems: const [
+              MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+              MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+            ],
+            accentColor: AppColors.passengerPrimary,
+            accentLightColor: AppColors.passengerLight,
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Back to Role Selection',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildMenuItem(Icons.home_outlined, 'Dashboard', 0),
-          _buildMenuItem(Icons.phone_outlined, 'Emergency', 1),
-          const Spacer(),
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFF9B59B6),
-                      child: Text(
-                        widget.user.firstName[0].toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.user.fullName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            widget.user.email,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.notifications_outlined, size: 20, color: Colors.grey[600]),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AuthScreen()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.exit_to_app, size: 18, color: Colors.grey[700]),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Sign Out',
-                          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          Expanded(
+            child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final isSelected = _selectedIndex == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFF3E5F5) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? const Color(0xFF9B59B6) : Colors.grey[700],
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: isSelected ? const Color(0xFF9B59B6) : Colors.grey[800],
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget _buildStaggeredItem(Widget child, int index) {
+    final Animation<double> fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
+      ),
+    );
+    final Animation<Offset> slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: child,
       ),
     );
   }
 
+
+
   Widget _buildDashboard() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Passenger Safety Monitor',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Real-time driver monitoring and emergency controls',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 32),
-            _buildEmergencyControlsCard(),
-            const SizedBox(height: 24),
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildDriverAlertnessCard()),
-                const SizedBox(width: 20),
-                Expanded(child: _buildCurrentSpeedCard()),
-                const SizedBox(width: 20),
-                Expanded(child: _buildTripProgressCard()),
-                const SizedBox(width: 20),
-                Expanded(child: _buildSafetyStatusCard()),
+                _buildStaggeredItem(
+                  const Text(
+                    'Passenger Safety Monitor',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  0,
+                ),
+                const SizedBox(height: 8),
+                _buildStaggeredItem(
+                  const Text(
+                    'Real-time monitoring of driver status and trip safety',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  1,
+                ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(
+                  _buildEmergencyControlsCard(),
+                  2,
+                ),
+                const SizedBox(height: 24),
+                _buildStaggeredItem(
+                  isMobile
+                      ? Column(
+                          children: [
+                            _buildDriverAlertnessCard(),
+                            const SizedBox(height: 16),
+                            _buildCurrentSpeedCard(),
+                            const SizedBox(height: 16),
+                            _buildTripProgressCard(),
+                            const SizedBox(height: 16),
+                            _buildSafetyStatusCard(),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: _buildDriverAlertnessCard()),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildCurrentSpeedCard()),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildTripProgressCard()),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildSafetyStatusCard()),
+                          ],
+                        ),
+                  3,
+                ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(_buildTabBar(), 4),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(
+                  isMobile
+                      ? Column(
+                          children: [
+                            if (_selectedTab == 0) ...[
+                              _buildDriverAlertnessTrend(),
+                              const SizedBox(height: 20),
+                              _buildTripInformation(),
+                            ] else if (_selectedTab == 1) ...[
+                              // Placeholder for Location Tab content if it was split
+                              _buildLocationTab(),
+                            ] else ...[
+                              // Placeholder for Safety Tools Tab content
+                              _buildSafetyToolsTab(),
+                            ],
+                          ],
+                        )
+                      : Builder(
+                          builder: (context) {
+                            if (_selectedTab == 0) return _buildLiveStatusTab();
+                            if (_selectedTab == 1) return _buildLocationTab();
+                            return _buildSafetyToolsTab();
+                          },
+                        ),
+                  5,
+                ),
               ],
             ),
-            const SizedBox(height: 32),
-            _buildTabBar(),
-            const SizedBox(height: 32),
-            if (_selectedTab == 0) _buildLiveStatusTab(),
-            if (_selectedTab == 1) _buildLocationTab(),
-            if (_selectedTab == 2) _buildSafetyToolsTab(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -358,7 +254,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.2), width: 2),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.2), width: 2),
       ),
       child: Column(
         children: [
@@ -466,7 +362,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
               value: _driverAlertness / 100,
               minHeight: 8,
               backgroundColor: const Color(0xFFE0E0E0),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9B59B6)),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.passengerPrimary),
             ),
           ),
         ],
@@ -569,7 +465,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
               value: _tripProgress / 100,
               minHeight: 8,
               backgroundColor: const Color(0xFFE0E0E0),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9B59B6)),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.passengerPrimary),
             ),
           ),
           const SizedBox(height: 12),
@@ -670,7 +566,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
           borderRadius: BorderRadius.circular(8),
           border: isActive
               ? const Border(
-            bottom: BorderSide(color: Color(0xFF9B59B6), width: 3),
+            bottom: BorderSide(color: AppColors.passengerPrimary, width: 3),
           )
               : null,
         ),
@@ -679,7 +575,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
           style: TextStyle(
             fontSize: 14,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            color: isActive ? const Color(0xFF9B59B6) : Colors.black54,
+            color: isActive ? AppColors.passengerPrimary : Colors.black54,
           ),
         ),
       ),
@@ -881,7 +777,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

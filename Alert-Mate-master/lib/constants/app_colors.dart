@@ -36,6 +36,12 @@ class AppColors {
   static const Color fireLight = Color(0xFFFFF3E0);
   static const Color motorway = Color(0xFF4CAF50);
   static const Color motorwayLight = Color(0xFFE8F5E9);
+
+  // Role Colors
+  static const Color passengerPrimary = Color(0xFF9B59B6);
+  static const Color passengerLight = Color(0xFFF3E5F5);
+  static const Color driverPrimary = Color(0xFF6366F1);
+  static const Color driverLight = Color(0xFFEEF2FF);
   
   // Gradient Colors
   static const List<Color> primaryGradient = [
@@ -44,7 +50,7 @@ class AppColors {
   ];
   
   // Shadow Colors
-  static Color shadowLight = Colors.black.withOpacity(0.04);
-  static Color shadowMedium = Colors.black.withOpacity(0.08);
-  static Color shadowDark = Colors.black.withOpacity(0.12);
+  static Color shadowLight = Colors.black.withValues(alpha: 0.04);
+  static Color shadowMedium = Colors.black.withValues(alpha: 0.08);
+  static Color shadowDark = Colors.black.withValues(alpha: 0.12);
 }

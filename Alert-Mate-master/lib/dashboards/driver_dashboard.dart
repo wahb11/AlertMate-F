@@ -5,6 +5,8 @@ import 'dart:io';
 import 'dart:math';
 import '../models/user.dart';
 import '../auth_screen.dart';
+import '../widgets/shared/app_sidebar.dart';
+import '../constants/app_colors.dart';
 
 class DriverDashboard extends StatefulWidget {
   final User user;
@@ -211,236 +213,53 @@ class _DriverDashboardState extends State<DriverDashboard>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SlideTransition(
-          position: _slideAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Row(
-              children: [
-                _buildSidebar(),
-                Expanded(
-                  child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Container(
-      width: 290,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.background,
+      body: Row(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ALERT MATE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Drowsiness Detection',
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'driver',
-                    style: TextStyle(
-                      color: Color(0xFF6366F1),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          AppSidebar(
+            role: 'driver',
+            user: widget.user,
+            selectedIndex: _selectedIndex,
+            onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+            menuItems: const [
+              MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+              MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+            ],
+            accentColor: AppColors.driverPrimary,
+            accentLightColor: AppColors.driverLight,
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(
-                        Icons.arrow_back, size: 18, color: Colors.black87),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Back to Role Selection',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildMenuItem(Icons.home_outlined, 'Dashboard', 0),
-          _buildMenuItem(Icons.phone_outlined, 'Emergency', 1),
-          const Spacer(),
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFF6366F1),
-                      child: Text(
-                        widget.user.firstName[0].toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.user.fullName,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            widget.user.email,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.notifications_outlined, size: 20,
-                        color: Colors.grey[600]),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AuthScreen()),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(Icons.exit_to_app, size: 18,
-                            color: Colors.grey[700]),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Sign Out',
-                          style: TextStyle(fontSize: 14, color: Colors
-                              .grey[800]),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          Expanded(
+            child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final isSelected = _selectedIndex == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      child: AnimatedScale(
-        scale: isSelected ? 1.02 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        child: InkWell(
-          onTap: () => setState(() => _selectedIndex = index),
-          borderRadius: BorderRadius.circular(8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFEEF2FF) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: isSelected ? [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ] : null,
-            ),
-            child: Row(
-              children: [
-                AnimatedRotation(
-                  turns: isSelected ? 0.1 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    icon,
-                    color: isSelected ? const Color(0xFF6366F1) : Colors.grey[700],
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF6366F1) : Colors
-                        .grey[800],
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    fontSize: 15,
-                  ),
-                  child: Text(title),
-                ),
-              ],
-            ),
-          ),
-        ),
+  Widget _buildStaggeredItem(Widget child, int index) {
+    final Animation<double> fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
+      ),
+    );
+    final Animation<Offset> slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: child,
       ),
     );
   }
+
+
 
   Widget _buildDashboard() {
     return LayoutBuilder(
@@ -488,7 +307,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                           ? 'Stop Monitoring'
                           : 'Start Monitoring'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: AppColors.driverPrimary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 16),
@@ -598,7 +417,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 child: Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1),
+                    color: AppColors.driverPrimary,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -757,12 +576,12 @@ class _DriverDashboardState extends State<DriverDashboard>
             borderRadius: BorderRadius.circular(8),
             border: isActive
                 ? const Border(
-              bottom: BorderSide(color: Color(0xFF6366F1), width: 2),
+              bottom: BorderSide(color: AppColors.driverPrimary, width: 2),
             )
                 : null,
             boxShadow: isActive ? [
               BoxShadow(
-                color: const Color(0xFF6366F1).withOpacity(0.2),
+                color: AppColors.driverPrimary.withValues(alpha: 0.2),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -773,7 +592,7 @@ class _DriverDashboardState extends State<DriverDashboard>
             style: TextStyle(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive ? const Color(0xFF6366F1) : Colors.black54,
+              color: isActive ? AppColors.driverPrimary : Colors.black54,
             ),
             child: Text(text),
           ),
@@ -1387,6 +1206,311 @@ class _DriverDashboardState extends State<DriverDashboard>
     );
   }
 
+  // Add Contact Dialog
+  void _showAddContactDialog() {
+    final nameController = TextEditingController();
+    final relationshipController = TextEditingController();
+    final phoneController = TextEditingController();
+    final emailController = TextEditingController();
+    String priority = 'secondary';
+    List<String> methods = ['call'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Emergency Contact'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: relationshipController,
+                  decoration: const InputDecoration(
+                    labelText: 'Relationship *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  decoration: const InputDecoration(
+                    labelText: 'Priority',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                    DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      priority = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text('Contact Methods:', style: TextStyle(fontWeight: FontWeight.bold)),
+                CheckboxListTile(
+                  title: const Text('Phone Call'),
+                  value: methods.contains('call'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('call');
+                      } else {
+                        methods.remove('call');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('SMS'),
+                  value: methods.contains('sms'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('sms');
+                      } else {
+                        methods.remove('sms');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Email'),
+                  value: methods.contains('email'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('email');
+                      } else {
+                        methods.remove('email');
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isEmpty || 
+                    relationshipController.text.isEmpty || 
+                    phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in all required fields')),
+                  );
+                  return;
+                }
+                
+                setState(() {
+                  _emergencyContacts.add({
+                    'name': nameController.text,
+                    'relationship': relationshipController.text,
+                    'phone': phoneController.text,
+                    'email': emailController.text,
+                    'priority': priority,
+                    'methods': methods,
+                    'enabled': true,
+                  });
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${nameController.text} added to emergency contacts')),
+                );
+              },
+              child: const Text('Add Contact'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Edit Contact Dialog
+  void _showEditContactDialog(int index) {
+    final contact = _emergencyContacts[index];
+    final nameController = TextEditingController(text: contact['name']);
+    final relationshipController = TextEditingController(text: contact['relationship']);
+    final phoneController = TextEditingController(text: contact['phone']);
+    final emailController = TextEditingController(text: contact['email']);
+    String priority = contact['priority'];
+    List<String> methods = List<String>.from(contact['methods']);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Emergency Contact'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: relationshipController,
+                  decoration: const InputDecoration(
+                    labelText: 'Relationship *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  decoration: const InputDecoration(
+                    labelText: 'Priority',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                    DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      priority = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text('Contact Methods:', style: TextStyle(fontWeight: FontWeight.bold)),
+                CheckboxListTile(
+                  title: const Text('Phone Call'),
+                  value: methods.contains('call'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('call');
+                      } else {
+                        methods.remove('call');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('SMS'),
+                  value: methods.contains('sms'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('sms');
+                      } else {
+                        methods.remove('sms');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Email'),
+                  value: methods.contains('email'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('email');
+                      } else {
+                        methods.remove('email');
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (nameController.text.isEmpty || 
+                    relationshipController.text.isEmpty || 
+                    phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in all required fields')),
+                  );
+                  return;
+                }
+                
+                setState(() {
+                  _emergencyContacts[index] = {
+                    'name': nameController.text,
+                    'relationship': relationshipController.text,
+                    'phone': phoneController.text,
+                    'email': emailController.text,
+                    'priority': priority,
+                    'methods': methods,
+                    'enabled': contact['enabled'],
+                  };
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${nameController.text} updated successfully')),
+                );
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmergencyContactsTable() {
     // uses the stateful _emergencyContacts defined on the State
     return Container(
@@ -1430,20 +1554,9 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ],
               ),
               ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _emergencyContacts.add({
-                      'name': 'New Contact',
-                      'relationship': 'Other',
-                      'phone': '+0 000 000 0000',
-                      'email': '',
-                      'priority': 'secondary',
-                      'methods': ['call'],
-                      'enabled': true,
-                    });
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added contact')));
-                },
+              onPressed: () {
+                _showAddContactDialog();
+              },
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Contact'),
                 style: ElevatedButton.styleFrom(
@@ -1640,11 +1753,10 @@ class _DriverDashboardState extends State<DriverDashboard>
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 20),
-            onPressed: () {
-              final name = _emergencyContacts[index]['name'];
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Edit contact: $name')));
-            },
+          icon: const Icon(Icons.edit_outlined, size: 20),
+          onPressed: () {
+            _showEditContactDialog(index);
+          },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),

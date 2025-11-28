@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import '../auth_screen.dart';
+import '../widgets/shared/app_sidebar.dart';
+import '../constants/app_colors.dart';
+import '../models/user.dart';
 
 class OwnerDashboard extends StatefulWidget {
   final dynamic user;
@@ -12,13 +15,34 @@ class OwnerDashboard extends StatefulWidget {
   State<OwnerDashboard> createState() => _OwnerDashboardState();
 }
 
-class _OwnerDashboardState extends State<OwnerDashboard> {
+class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   int _selectedTab = 0;
   String _searchQuery = '';
   String _statusFilter = 'All Status';
   Timer? _updateTimer;
   final Random _random = Random();
+
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _fadeController.forward();
+    _slideController.forward();
+    _startDataUpdate();
+  }
 
   final List<Map<String, dynamic>> _emergencyContacts = [
     {'name': 'Sarah Johnson', 'relationship': 'Spouse', 'phone': '+1 (555) 123-4567', 'email': 'sarah@example.com', 'priority': 'primary', 'methods': ['call', 'sms', 'email'], 'enabled': true},
@@ -70,9 +94,11 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _startDataUpdate();
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    _updateTimer?.cancel();
+    super.dispose();
   }
 
   void _startDataUpdate() {
@@ -85,10 +111,29 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     });
   }
 
-  @override
-  void dispose() {
-    _updateTimer?.cancel();
-    super.dispose();
+
+
+  Widget _buildStaggeredItem(Widget child, int index) {
+    final Animation<double> fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
+      ),
+    );
+    final Animation<Offset> slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: child,
+      ),
+    );
   }
 
   int get _totalVehicles => 25;
@@ -99,10 +144,21 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: AppColors.background,
       body: Row(
         children: [
-          _buildSidebar(),
+          AppSidebar(
+            role: 'owner',
+            user: widget.user is User ? widget.user : null, // Handle dynamic user type if needed
+            selectedIndex: _selectedIndex,
+            onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+            menuItems: const [
+              MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+              MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+            ],
+            accentColor: AppColors.primary,
+            accentLightColor: AppColors.primaryLight,
+          ),
           Expanded(
             child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
           ),
@@ -111,307 +167,184 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     );
   }
 
-  Widget _buildSidebar() {
-    return Container(
-      width: 290,
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
+
+
+  Widget _buildDashboard() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ALERT MATE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Drowsiness Detection',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'owner',
-                    style: TextStyle(
-                      color: Color(0xFF2196F3),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Back to Role Selection',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildMenuItem(Icons.home_outlined, 'Dashboard', 0),
-          _buildMenuItem(Icons.phone_outlined, 'Emergency', 1),
-          const Spacer(),
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFF2196F3),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
+                _buildStaggeredItem(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            widget.user?.firstName ?? 'John Doe',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                            'Fleet Management',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
                           ),
+                          SizedBox(height: 8),
                           Text(
-                            widget.user?.email ?? 'wahb@gmail.com',
+                            'Monitor and manage your vehicle fleet',
                             style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
+                              fontSize: 16,
+                              color: Colors.black54,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                    ),
-                    Icon(Icons.notifications_outlined, size: 20, color: Colors.orange[400]),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: InkWell(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 18, color: Colors.grey[700]),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Sign Out',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final isSelected = _selectedIndex == index;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-      child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFE3F2FD) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? const Color(0xFF2196F3) : Colors.grey[700],
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: isSelected ? const Color(0xFF2196F3) : Colors.grey[800],
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDashboard() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Fleet Management',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Monitor and manage your vehicle fleet',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export report')));
-                      },
-                      icon: const Icon(Icons.download, size: 18),
-                      label: const Text('Export Report'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        elevation: 0,
-                        side: BorderSide(color: Colors.grey[300]!),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      if (!isMobile)
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export report')));
+                              },
+                              icon: const Icon(Icons.download, size: 18),
+                              label: const Text('Export Report'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black87,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                elevation: 0,
+                                side: BorderSide(color: Colors.grey[300]!),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open settings')));
+                              },
+                              icon: const Icon(Icons.settings),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                side: BorderSide(color: Colors.grey[300]!),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open settings')));
-                      },
-                      icon: const Icon(Icons.settings),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: BorderSide(color: Colors.grey[300]!),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  0,
                 ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(
+                  isMobile
+                      ? Column(
+                          children: [
+                            _buildStatCard(
+                              'Total Vehicles',
+                              _totalVehicles.toString(),
+                              'Fleet size',
+                              Icons.directions_car_outlined,
+                              AppColors.primary,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildStatCard(
+                              'Active Drivers',
+                              _activeDrivers.toString(),
+                              'Currently driving',
+                              Icons.people_outline,
+                              AppColors.success,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildStatCard(
+                              'Critical Alerts',
+                              _criticalAlerts.toString(),
+                              'Requires attention',
+                              Icons.warning_amber_rounded,
+                              AppColors.danger,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildStatCard(
+                              'Safety Score',
+                              _fleetSafetyScore,
+                              'Overall performance',
+                              Icons.shield_outlined,
+                              AppColors.success,
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: _buildStatCard(
+                              'Total Vehicles',
+                              _totalVehicles.toString(),
+                              'Fleet size',
+                              Icons.directions_car_outlined,
+                              AppColors.primary,
+                            )),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard(
+                              'Active Drivers',
+                              _activeDrivers.toString(),
+                              'Currently driving',
+                              Icons.people_outline,
+                              AppColors.success,
+                            )),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard(
+                              'Critical Alerts',
+                              _criticalAlerts.toString(),
+                              'Requires attention',
+                              Icons.warning_amber_rounded,
+                              AppColors.danger,
+                            )),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard(
+                              'Safety Score',
+                              _fleetSafetyScore,
+                              'Overall performance',
+                              Icons.shield_outlined,
+                              AppColors.success,
+                            )),
+                          ],
+                        ),
+                  1,
+                ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Fleet Overview Section - Coming Soon',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                  2,
+                ),
+                const SizedBox(height: 32),
+                // TODO: Implement these sections
+                // _buildStaggeredItem(_buildPerformanceMetrics(), 3),
+                // _buildStaggeredItem(_buildVehicleList(), 4),
               ],
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(child: _buildStatCard(
-                  'Total Vehicles',
-                  _totalVehicles.toString(),
-                  'Fleet size',
-                  Icons.directions_car_outlined,
-                  Colors.blue,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Active Drivers',
-                  _activeDrivers.toString(),
-                  'Currently driving',
-                  Icons.people_outline,
-                  Colors.green,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Critical Alerts',
-                  _criticalAlerts.toString(),
-                  'Require attention',
-                  Icons.warning_amber_outlined,
-                  Colors.red,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Fleet Safety Score',
-                  _fleetSafetyScore,
-                  'Overall performance',
-                  Icons.shield_outlined,
-                  const Color(0xFF4CAF50),
-                )),
-              ],
-            ),
-            const SizedBox(height: 32),
-            _buildTabBar(),
-            const SizedBox(height: 32),
-            if (_selectedTab == 0) _buildLiveFleetTab(),
-            if (_selectedTab == 1) _buildAnalyticsTab(),
-            if (_selectedTab == 2) _buildDriverManagementTab(),
-            if (_selectedTab == 3) _buildReportsTab(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
+
 
   Widget _buildStatCard(String title, String value, String subtitle, IconData icon, Color color) {
     return Container(
@@ -443,7 +376,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: title == 'Critical Alerts' ? Colors.red : Colors.black87,
+              color: title == 'Critical Alerts' ? AppColors.danger : Colors.black87,
             ),
           ),
           const SizedBox(height: 8),
@@ -567,7 +500,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                     hintStyle: TextStyle(color: Colors.grey[400]),
                     prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
                     filled: true,
-                    fillColor: const Color(0xFFF5F7FA),
+                    fillColor: AppColors.background,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
@@ -683,13 +616,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     Color color;
     switch (status) {
       case 'Active':
-        color = const Color(0xFF4CAF50);
+        color = AppColors.success;
         break;
       case 'Break':
-        color = const Color(0xFF2196F3);
+        color = AppColors.primary;
         break;
       case 'Critical':
-        color = Colors.red;
+        color = AppColors.danger;
         break;
       default:
         color = Colors.grey;
@@ -738,8 +671,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 minHeight: 6,
                 backgroundColor: Colors.grey[200],
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  alertness >= 80 ? const Color(0xFF4CAF50) :
-                  alertness >= 70 ? const Color(0xFFFFA726) : Colors.red,
+                  alertness >= 80 ? AppColors.success :
+                  alertness >= 70 ? AppColors.warning : AppColors.danger,
                 ),
               ),
             ),
@@ -813,11 +746,11 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             ),
           ),
           const SizedBox(height: 32),
-          _buildLegendItem(const Color(0xFF4CAF50), 'Active', '72%'),
+          _buildLegendItem(AppColors.success, 'Active', '72%'),
           const SizedBox(height: 12),
-          _buildLegendItem(const Color(0xFF2196F3), 'Break', '20%'),
+          _buildLegendItem(AppColors.primary, 'Break', '20%'),
           const SizedBox(height: 12),
-          _buildLegendItem(Colors.red, 'Critical', '5%'),
+          _buildLegendItem(AppColors.danger, 'Critical', '5%'),
           const SizedBox(height: 12),
           _buildLegendItem(Colors.grey, 'Offline', '3%'),
         ],
@@ -886,7 +819,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           const SizedBox(height: 24),
           _buildAlertItem(
             Icons.warning_amber,
-            Colors.red,
+            AppColors.danger,
             'Critical drowsiness detected',
             'Vehicle V004 - Lisa Wong - 30 sec ago',
             const Color(0xFFFFEBEE),
@@ -894,7 +827,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           const SizedBox(height: 16),
           _buildAlertItem(
             Icons.access_time,
-            const Color(0xFFFFA726),
+            AppColors.warning,
             'Driver break overdue',
             'Vehicle V003 - Mike Chen - 5 min ago',
             const Color(0xFFFFF3E0),
@@ -902,7 +835,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           const SizedBox(height: 16),
           _buildAlertItem(
             Icons.location_on,
-            const Color(0xFF2196F3),
+            AppColors.primary,
             'Vehicle entered rest area',
             'Vehicle V002 - Sarah Johnson - 15 min ago',
             const Color(0xFFE3F2FD),
@@ -1077,25 +1010,25 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               Expanded(child: _buildMetricCard(
                 '94.2%',
                 'On-time Performance',
-                const Color(0xFF4CAF50),
+                AppColors.success,
               )),
               const SizedBox(width: 20),
               Expanded(child: _buildMetricCard(
                 '2.3',
                 'Avg Incidents/Month',
-                const Color(0xFF2196F3),
+                AppColors.primary,
               )),
               const SizedBox(width: 20),
               Expanded(child: _buildMetricCard(
                 '847',
                 'Total Miles (Today)',
-                const Color(0xFF9C27B0),
+                const Color(0xFF9C27B0), // No AppColors equivalent provided for this specific purple
               )),
               const SizedBox(width: 20),
               Expanded(child: _buildMetricCard(
                 '\$2,340',
                 'Cost Savings',
-                const Color(0xFFFF6F00),
+                AppColors.warning,
               )),
             ],
           ),
@@ -1108,7 +1041,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -1253,12 +1186,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   TableRow _buildDriverRow(Map<String, dynamic> driver) {
     return TableRow(
       children: [
-        _buildTableCell(driver['name']),
-        _buildTableCell(driver['totalTrips'].toString()),
-        _buildAlertnessDriverCell(driver['avgAlertness']),
-        _buildIncidentsCircleCell(driver['incidents']),
-        _buildSafetyScoreCell(driver['safetyScore'], driver['status']),
-        _buildDriverActionsCell(),
+        _buildTableCell(driver['id']),
+        _buildTableCell(driver['driver']),
+        _buildStatusBadge(driver['status']),
+        _buildAlertnessCell(driver['alertness']),
+        _buildTableCell(driver['location']),
+        _buildTableCell(driver['lastUpdate']),
+        _buildActionsCell(),
       ],
     );
   }
@@ -1285,9 +1219,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 minHeight: 8,
                 backgroundColor: Colors.grey[200],
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  alertness >= 90 ? const Color(0xFF2196F3) :
-                  alertness >= 80 ? const Color(0xFF2196F3) :
-                  const Color(0xFF2196F3),
+                  alertness >= 90 ? AppColors.primary :
+                  alertness >= 80 ? AppColors.primary :
+                  AppColors.primary,
                 ),
               ),
             ),
@@ -1300,11 +1234,11 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Widget _buildIncidentsCircleCell(int incidents) {
     Color bgColor;
     if (incidents == 0) {
-      bgColor = const Color(0xFF2196F3);
+      bgColor = AppColors.primary;
     } else if (incidents <= 2) {
       bgColor = Colors.grey;
     } else {
-      bgColor = Colors.red;
+      bgColor = AppColors.danger;
     }
 
     return Padding(
@@ -1334,13 +1268,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     Color dotColor;
     switch (status) {
       case 'excellent':
-        dotColor = const Color(0xFF4CAF50);
+        dotColor = AppColors.success;
         break;
       case 'good':
-        dotColor = const Color(0xFFFFA726);
+        dotColor = AppColors.warning;
         break;
       default:
-        dotColor = Colors.red;
+        dotColor = AppColors.danger;
     }
 
     return Padding(
@@ -1442,11 +1376,11 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   Widget _buildTopPerformerItem(int rank, String name, double score) {
     Color rankColor;
     if (rank == 1) {
-      rankColor = const Color(0xFFFFD700);
+      rankColor = const Color(0xFFFFD700); // Gold
     } else if (rank == 2) {
-      rankColor = const Color(0xFFC0C0C0);
+      rankColor = const Color(0xFFC0C0C0); // Silver
     } else {
-      rankColor = const Color(0xFFCD7F32);
+      rankColor = const Color(0xFFCD7F32); // Bronze
     }
 
     return Row(
@@ -1483,7 +1417,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFF4CAF50),
+            color: AppColors.success,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -2323,7 +2257,7 @@ class PieChartPainter extends CustomPainter {
 
     // Active - 72% (green)
     final activePaint = Paint()
-      ..color = const Color(0xFF4CAF50)
+      ..color = AppColors.success
       ..style = PaintingStyle.fill;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),

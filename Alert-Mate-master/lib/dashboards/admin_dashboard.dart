@@ -15,11 +15,61 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStateMixin {
   int _selectedIndex = 0; // 0: Dashboard, 1: Emergency
   int _selectedTab = 0;
   String _selectedRoleFilter = 'All Roles';
   final Random _random = Random();
+
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _fadeController.forward();
+    _slideController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildStaggeredItem(Widget child, int index) {
+    final Animation<double> fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOut),
+      ),
+    );
+    final Animation<Offset> slideAnimation = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _slideController,
+        curve: Interval(index * 0.1, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeAnimation,
+      child: SlideTransition(
+        position: slideAnimation,
+        child: child,
+      ),
+    );
+  }
   // Emergency contacts (moved to state so actions can modify them)
   final List<Map<String, dynamic>> _emergencyContacts = [
     {'name': 'Sarah Johnson', 'relationship': 'Spouse', 'phone': '+1 (555) 123-4567', 'email': 'sarah@example.com', 'priority': 'primary', 'methods': ['call', 'sms', 'email'], 'enabled': true},
@@ -52,9 +102,80 @@ class _AdminDashboardState extends State<AdminDashboard> {
         MenuItem(icon: Icons.dashboard_outlined, title: 'Dashboard'),
         MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
       ],
+      accentColor: AppColors.primary,
+      accentLightColor: AppColors.primaryLight,
     );
   }
 
+
+  Widget _buildMainContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 768;
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStaggeredItem(
+                  const Text(
+                    'Admin Dashboard',
+                    style: TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  0,
+                ),
+                const SizedBox(height: 8),
+                _buildStaggeredItem(
+                  const Text(
+                    'System overview and user management',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  1,
+                ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(
+                  isMobile
+                      ? Column(
+                          children: [
+                            _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary),
+                            const SizedBox(height: 16),
+                            _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success),
+                            const SizedBox(height: 16),
+                            _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning),
+                            const SizedBox(height: 16),
+                            _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary)),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success)),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning)),
+                            const SizedBox(width: 20),
+                            Expanded(child: _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success)),
+                          ],
+                        ),
+                  2,
+                ),
+                const SizedBox(height: 32),
+                _buildStaggeredItem(_buildUserManagement(), 3),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildEmergency() {
     return SingleChildScrollView(
@@ -83,13 +204,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
             Row(
               children: [
-                Expanded(child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.primary, const Color(0xFFE3F2FD))),
+                Expanded(child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight)),
                 const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, Colors.red, const Color(0xFFFFEBEE))),
+                Expanded(child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight)),
                 const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, const Color(0xFFFF6F00), const Color(0xFFFFF3E0))),
+                Expanded(child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight)),
                 const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, const Color(0xFF4CAF50), const Color(0xFFE8F5E9))),
+                Expanded(child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight)),
               ],
             ),
             const SizedBox(height: 32),
@@ -109,7 +230,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -176,7 +297,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -584,25 +705,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildMainContent() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 32),
-            _buildStatsCards(),
-            const SizedBox(height: 32),
-            _buildTabBar(),
-            const SizedBox(height: 32),
-            _buildTabContent(),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildHeader() {
     return Row(
@@ -1223,7 +1326,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 20, color: color),
