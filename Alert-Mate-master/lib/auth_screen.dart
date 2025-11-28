@@ -169,7 +169,7 @@ class _AuthScreenState extends State<AuthScreen>
             email: email,
             phone: '$_selectedDialCode ${_phoneController.text.trim()}',
             password: _passwordController.text,
-            role: selectedRole,
+           roles: [_getSelectedRole()],
           );
           setState(() { _isLoading = false; });
           _showSuccessDialog('Account created! Please verify your email.');

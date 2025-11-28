@@ -5,8 +5,8 @@ class User {
   final String email;
   final String phone;
   final String role;
-  final bool emailVerified;
-  final bool isActive;
+  final List<String>? roles;
+  final String profilePicture;
 
   User({
     required this.id,
@@ -15,11 +15,13 @@ class User {
     required this.email,
     required this.phone,
     required this.role,
-    this.emailVerified = false,
-    this.isActive = true,
+    this.roles,
+    this.profilePicture = '',
   });
 
   String get fullName => '$firstName $lastName';
+
+  bool hasRole(String checkRole) => roles?.contains(checkRole) ?? false;
 
   Map<String, dynamic> toMap() {
     return {
@@ -29,21 +31,21 @@ class User {
       'email': email,
       'phone': phone,
       'role': role,
-      'emailVerified': emailVerified,
-      'isActive': isActive,
+      'roles': roles ?? [role],
+      'profilePicture': profilePicture,
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map, String uid) {
+  factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      id: uid,
+      id: map['id'] ?? '',
       firstName: map['firstName'] ?? '',
       lastName: map['lastName'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
-      role: map['role'] ?? '',
-      emailVerified: map['emailVerified'] ?? false,
-      isActive: map['isActive'] ?? true,
+      role: map['role'] ?? map['activeRole'] ?? 'passenger',
+      roles: List<String>.from(map['roles'] ?? [map['role'] ?? 'passenger']),
+      profilePicture: map['profilePicture'] ?? '',
     );
   }
 }
