@@ -169,6 +169,11 @@ class _AuthScreenState extends State<AuthScreen>
           final user = await _authService.signIn(email, _passwordController.text);
           setState(() { _isLoading = false; });
           if (user != null) {
+            // Auto-assign vehicle if driver
+            if (user.role == 'driver' || (user.roles?.contains('driver') ?? false)) {
+              final vehicleService = VehicleService();
+              vehicleService.assignAvailableVehicleToDriver(user.id, user.fullName);
+            }
             _navigateToDashboard(user);
           } else {
             _showErrorDialog('User data not found');
