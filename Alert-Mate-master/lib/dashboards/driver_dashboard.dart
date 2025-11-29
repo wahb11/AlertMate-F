@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import '../models/user.dart';
+import '../models/vehicle.dart';
+import '../services/vehicle_service.dart';
 import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
@@ -30,6 +32,9 @@ class _DriverDashboardState extends State<DriverDashboard>
   double _eyeClosurePercentage = 0.0;
   Timer? _updateTimer;
   final Random _random = Random();
+  
+  Vehicle? _assignedVehicle;
+  final VehicleService _vehicleService = VehicleService();
   // make emergency contacts part of state so UI can modify them
   final List<Map<String, dynamic>> _emergencyContacts = [
     {
@@ -77,6 +82,10 @@ class _DriverDashboardState extends State<DriverDashboard>
   @override
   void initState() {
     super.initState();
+    _vehicleService.initMockData();
+    // Fetch assigned vehicle using User ID
+    _assignedVehicle = _vehicleService.getVehicleByDriver(widget.user.id); // Using ID for matching as per mock data
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -319,7 +328,47 @@ class _DriverDashboardState extends State<DriverDashboard>
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 32),
+                if (_assignedVehicle != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.driverPrimary.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.directions_car, color: AppColors.driverPrimary),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Assigned Vehicle: ${_assignedVehicle!.make} ${_assignedVehicle!.model} (${_assignedVehicle!.year})',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _buildVehicleInfoChip(Icons.confirmation_number, _assignedVehicle!.licensePlate),
+                            const SizedBox(width: 16),
+                            _buildVehicleInfoChip(Icons.tag, _assignedVehicle!.id),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 isSmallScreen
                     ? Column(
                   children: [
@@ -1785,6 +1834,32 @@ class _DriverDashboardState extends State<DriverDashboard>
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildVehicleInfoChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[800],
+            ),
           ),
         ],
       ),

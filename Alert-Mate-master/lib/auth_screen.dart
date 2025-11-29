@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'models/user.dart';
 import 'package:country_picker/country_picker.dart';
 import 'services/firebase_auth_service.dart';
+import 'services/vehicle_service.dart';
 import 'dashboards/driver_dashboard.dart';
 import 'dashboards/passenger_dashboard.dart';
 import 'dashboards/owner_dashboard.dart';
@@ -9,7 +10,14 @@ import 'dashboards/admin_dashboard.dart';
 import 'utils/page_transitions.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  final int? initialDashboardIndex;
+  final bool? initialIsSignIn;
+
+  const AuthScreen({
+    Key? key, 
+    this.initialDashboardIndex,
+    this.initialIsSignIn,
+  }) : super(key: key);
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -100,6 +108,14 @@ class _AuthScreenState extends State<AuthScreen>
     _animationController.forward();
     _slideController.forward();
     _scaleController.forward();
+
+    // Initialize with passed parameters if available
+    if (widget.initialDashboardIndex != null) {
+      _selectedDashboard = widget.initialDashboardIndex!;
+    }
+    if (widget.initialIsSignIn != null) {
+      isSignIn = widget.initialIsSignIn!;
+    }
   }
 
   @override
@@ -163,14 +179,23 @@ class _AuthScreenState extends State<AuthScreen>
         }
       } else {
         try {
-          await _authService.signUp(
+          final user = await _authService.signUp(
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             email: email,
             phone: '$_selectedDialCode ${_phoneController.text.trim()}',
             password: _passwordController.text,
-           roles: [_getSelectedRole()],
+            roles: [_getSelectedRole()],
           );
+          
+          // Auto-assign vehicle if driver
+          if (selectedRole == 'driver' && user != null) {
+             final vehicleService = VehicleService(); // Get singleton
+             // Construct full name as user object might not be fully populated in return
+             final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+             vehicleService.assignAvailableVehicleToDriver(user.uid, fullName);
+          }
+
           setState(() { _isLoading = false; });
           _showSuccessDialog('Account created! Please verify your email.');
         } catch (e) {

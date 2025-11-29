@@ -5,6 +5,10 @@ import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
 import '../models/user.dart';
+import '../models/vehicle.dart';
+import '../services/vehicle_service.dart';
+import '../services/firebase_auth_service.dart';
+import '../auth_screen.dart';
 
 class OwnerDashboard extends StatefulWidget {
   final dynamic user;
@@ -28,8 +32,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
   late AnimationController _slideController;
 
   @override
+  List<Vehicle> _vehicles = [];
+  final VehicleService _vehicleService = VehicleService();
+
+  @override
   void initState() {
     super.initState();
+    _vehicleService.initMockData();
+    _loadVehicles();
+    
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -44,53 +55,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     _startDataUpdate();
   }
 
+  void _loadVehicles() {
+    setState(() {
+      _vehicles = _vehicleService.getVehiclesByOwner(widget.user.id);
+    });
+  }
+
   final List<Map<String, dynamic>> _emergencyContacts = [
     {'name': 'Sarah Johnson', 'relationship': 'Spouse', 'phone': '+1 (555) 123-4567', 'email': 'sarah@example.com', 'priority': 'primary', 'methods': ['call', 'sms', 'email'], 'enabled': true},
     {'name': 'Mike Chen', 'relationship': 'Fleet Manager', 'phone': '+1 (555) 987-6543', 'email': 'mike@company.com', 'priority': 'secondary', 'methods': ['sms', 'email'], 'enabled': true},
     {'name': 'Emergency Services', 'relationship': '911', 'phone': '911', 'email': '', 'priority': 'primary', 'methods': ['call'], 'enabled': true},
-  ];
-
-  final List<Map<String, dynamic>> _vehicles = [
-    {
-      'id': 'V001',
-      'driver': 'John Smith',
-      'status': 'Active',
-      'alertness': 85,
-      'location': 'Highway 101',
-      'lastUpdate': '2 min ago',
-    },
-    {
-      'id': 'V002',
-      'driver': 'Sarah Johnson',
-      'status': 'Break',
-      'alertness': 92,
-      'location': 'Rest Area',
-      'lastUpdate': '15 min ago',
-    },
-    {
-      'id': 'V003',
-      'driver': 'Mike Chen',
-      'status': 'Active',
-      'alertness': 78,
-      'location': 'I-5 South',
-      'lastUpdate': '1 min ago',
-    },
-    {
-      'id': 'V004',
-      'driver': 'Lisa Wong',
-      'status': 'Critical',
-      'alertness': 65,
-      'location': 'Highway 99',
-      'lastUpdate': '30 sec ago',
-    },
-    {
-      'id': 'V005',
-      'driver': 'David Brown',
-      'status': 'Active',
-      'alertness': 88,
-      'location': 'I-405',
-      'lastUpdate': '3 min ago',
-    },
   ];
 
   @override
@@ -103,12 +77,166 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
 
   void _startDataUpdate() {
     _updateTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      setState(() {
-        for (var vehicle in _vehicles) {
-          vehicle['alertness'] = 65 + _random.nextInt(30);
-        }
-      });
+      if (mounted) {
+        setState(() {
+          for (var vehicle in _vehicles) {
+            vehicle.alertness = 65 + _random.nextInt(30);
+          }
+        });
+      }
     });
+  }
+
+  void _showAddVehicleDialog() {
+    final _formKey = GlobalKey<FormState>();
+    String make = '';
+    String model = '';
+    String year = '';
+    String licensePlate = '';
+    bool isSelfDriven = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add New Vehicle'),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Make'),
+                  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                  onSaved: (value) => make = value ?? '',
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Model'),
+                  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                  onSaved: (value) => model = value ?? '',
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Year'),
+                  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                  onSaved: (value) => year = value ?? '',
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'License Plate'),
+                  validator: (value) => value?.isEmpty ?? true ? 'Required' : null,
+                  onSaved: (value) => licensePlate = value ?? '',
+                ),
+                const SizedBox(height: 16),
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    return CheckboxListTile(
+                      title: const Text('I will drive this vehicle'),
+                      value: isSelfDriven,
+                      onChanged: (value) async {
+                        if (value == true) {
+                          // Check if user is a driver
+                          final authService = FirebaseAuthService();
+                          List<String> roles = await authService.getUserRoles(widget.user.id);
+                          
+                          if (roles.contains('driver')) {
+                            setState(() {
+                              isSelfDriven = true;
+                            });
+                          } else {
+                            // Ask to sign up as driver
+                            if (mounted) {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Driver Role Required'),
+                                  content: const Text('You are not a registered driver. Please sign up as a driver first.'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.pop(context); // Close dialog
+                                        Navigator.pop(context); // Close Add Vehicle dialog
+                                        // Redirect to Signup
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const AuthScreen(
+                                              initialDashboardIndex: 0, // Driver
+                                              initialIsSignIn: false, // Sign Up
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text('Go to Signup'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          }
+                        } else {
+                          setState(() {
+                            isSelfDriven = false;
+                          });
+                        }
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (_formKey.currentState?.validate() ?? false) {
+                _formKey.currentState?.save();
+                
+                String? driverId;
+                String? driverName;
+                String status = 'Offline';
+                
+                if (isSelfDriven) {
+                  driverId = widget.user.id;
+                  driverName = widget.user.fullName;
+                  status = 'Active';
+                }
+
+                final newVehicle = Vehicle(
+                  id: _vehicleService.generateVehicleId(),
+                  make: make,
+                  model: model,
+                  year: year,
+                  licensePlate: licensePlate,
+                  ownerId: widget.user.id,
+                  driverId: driverId,
+                  driverName: driverName,
+                  status: status, 
+                );
+                _vehicleService.addVehicle(newVehicle);
+                _loadVehicles();
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(isSelfDriven 
+                    ? 'Vehicle added and assigned to you.' 
+                    : 'Vehicle added. Waiting for driver assignment.')),
+                );
+              }
+            },
+            child: const Text('Add Vehicle'),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -136,9 +264,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  int get _totalVehicles => 25;
-  int get _activeDrivers => 18;
-  int get _criticalAlerts => _vehicles.where((v) => v['status'] == 'Critical').length;
+  int get _totalVehicles => _vehicles.length;
+  int get _activeDrivers => _vehicles.where((v) => v.status == 'Active').length;
+  int get _criticalAlerts => _vehicles.where((v) => v.status == 'Critical').length;
   String get _fleetSafetyScore => '8.4/10';
 
   @override
@@ -207,6 +335,21 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                       if (!isMobile)
                         Row(
                           children: [
+                            ElevatedButton.icon(
+                              onPressed: _showAddVehicleDialog,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Vehicle'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             ElevatedButton.icon(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export report')));
@@ -318,19 +461,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                 ),
                 const SizedBox(height: 32),
                 _buildStaggeredItem(
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'Fleet Overview Section - Coming Soon',
-                        style: TextStyle(fontSize: 16, color: Colors.black54),
-                      ),
-                    ),
-                  ),
+                  _buildFleetOverview(),
                   2,
                 ),
                 const SizedBox(height: 32),
@@ -454,12 +585,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
   }
 
   Widget _buildFleetOverview() {
-    List<Map<String, dynamic>> filteredVehicles = _vehicles.where((vehicle) {
+    List<Vehicle> filteredVehicles = _vehicles.where((vehicle) {
       bool matchesSearch = _searchQuery.isEmpty ||
-          vehicle['driver'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          vehicle['id'].toLowerCase().contains(_searchQuery.toLowerCase());
+          (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+          vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
 
-      bool matchesFilter = _statusFilter == 'All Status' || vehicle['status'] == _statusFilter;
+      bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
 
       return matchesSearch && matchesFilter;
     }).toList();
@@ -585,15 +717,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  TableRow _buildVehicleRow(Map<String, dynamic> vehicle) {
+  TableRow _buildVehicleRow(Vehicle vehicle) {
     return TableRow(
       children: [
-        _buildTableCell(vehicle['id']),
-        _buildTableCell(vehicle['driver']),
-        _buildStatusBadge(vehicle['status']),
-        _buildAlertnessCell(vehicle['alertness']),
-        _buildTableCell(vehicle['location']),
-        _buildTableCell(vehicle['lastUpdate']),
+        _buildTableCell(vehicle.id),
+        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
+        _buildStatusBadge(vehicle.status),
+        _buildAlertnessCell(vehicle.alertness),
+        _buildTableCell(vehicle.location),
+        _buildTableCell(vehicle.lastUpdate),
         _buildActionsCell(),
       ],
     );
