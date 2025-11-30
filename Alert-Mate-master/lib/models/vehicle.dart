@@ -4,13 +4,14 @@ class Vehicle {
   final String model;
   final String year;
   final String licensePlate;
-  String? driverId;
-  String? driverName;
-  final String ownerId;
-  String status;
-  int alertness;
-  String location;
-  String lastUpdate;
+  final String? ownerId;
+  final String? assignedDriverId;
+  final String? assignedDriverEmail;
+  final String? driverName;
+  final String status;
+  final String alertness;
+  final String? location;
+  final String? lastUpdate;
 
   Vehicle({
     required this.id,
@@ -18,13 +19,14 @@ class Vehicle {
     required this.model,
     required this.year,
     required this.licensePlate,
-    required this.ownerId,
-    this.driverId,
+    this.ownerId,
+    this.assignedDriverId,
+    this.assignedDriverEmail,
     this.driverName,
     this.status = 'Offline',
-    this.alertness = 100,
-    this.location = 'Unknown',
-    this.lastUpdate = 'Just now',
+    this.alertness = 'Good',
+    this.location,
+    this.lastUpdate,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,9 +36,10 @@ class Vehicle {
       'model': model,
       'year': year,
       'licensePlate': licensePlate,
-      'driverId': driverId,
-      'driverName': driverName,
       'ownerId': ownerId,
+      'assignedDriverId': assignedDriverId,
+      'assignedDriverEmail': assignedDriverEmail,
+      'driverName': driverName,
       'status': status,
       'alertness': alertness,
       'location': location,
@@ -46,18 +49,19 @@ class Vehicle {
 
   factory Vehicle.fromMap(Map<String, dynamic> map) {
     return Vehicle(
-      id: map['id'],
-      make: map['make'],
-      model: map['model'],
-      year: map['year'],
-      licensePlate: map['licensePlate'],
+      id: map['id'] ?? '',
+      make: map['make'] ?? '',
+      model: map['model'] ?? '',
+      year: map['year'] ?? '',
+      licensePlate: map['licensePlate'] ?? '',
       ownerId: map['ownerId'],
-      driverId: map['driverId'],
+      assignedDriverId: map['assignedDriverId'],
+      assignedDriverEmail: map['assignedDriverEmail'],
       driverName: map['driverName'],
       status: map['status'] ?? 'Offline',
-      alertness: map['alertness'] ?? 100,
+      alertness: map['alertness'] ?? 'Good',
       location: map['location'] ?? 'Unknown',
-      lastUpdate: map['lastUpdate'] ?? 'Just now',
+      lastUpdate: map['lastUpdate'] ?? 'N/A',
     );
   }
 }
