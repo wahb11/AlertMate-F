@@ -82,9 +82,7 @@ class _DriverDashboardState extends State<DriverDashboard>
   @override
   void initState() {
     super.initState();
-    _vehicleService.initMockData();
-    // Fetch assigned vehicle using User ID
-    _assignedVehicle = _vehicleService.getVehicleByDriver(widget.user.id); // Using ID for matching as per mock data
+    // Vehicle data is now fetched via StreamBuilder
 
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -330,45 +328,78 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ),
 
                 const SizedBox(height: 32),
-                if (_assignedVehicle != null) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.driverPrimary.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 32),
+                StreamBuilder<Vehicle?>(
+                  stream: _vehicleService.getVehicleByDriverStream(widget.user.id),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Text('Error loading vehicle: ${snapshot.error}');
+                    }
+                    
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final assignedVehicle = snapshot.data;
+                    
+                    // Update local state for other widgets if needed
+                    if (assignedVehicle != null && _assignedVehicle?.id != assignedVehicle.id) {
+                       WidgetsBinding.instance.addPostFrameCallback((_) {
+                         if (mounted) setState(() => _assignedVehicle = assignedVehicle);
+                       });
+                    } else if (assignedVehicle == null && _assignedVehicle != null) {
+                       WidgetsBinding.instance.addPostFrameCallback((_) {
+                         if (mounted) setState(() => _assignedVehicle = null);
+                       });
+                    }
+
+                    if (assignedVehicle == null) {
+                      return const SizedBox.shrink(); // No vehicle assigned
+                    }
+
+                    return Column(
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.directions_car, color: AppColors.driverPrimary),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Assigned Vehicle: ${_assignedVehicle!.make} ${_assignedVehicle!.model} (${_assignedVehicle!.year})',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.driverPrimary.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.directions_car, color: AppColors.driverPrimary),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Assigned Vehicle: ${assignedVehicle.make} ${assignedVehicle.model} (${assignedVehicle.year})',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  _buildVehicleInfoChip(Icons.confirmation_number, assignedVehicle.licensePlate),
+                                  const SizedBox(width: 16),
+                                  _buildVehicleInfoChip(Icons.tag, assignedVehicle.id),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            _buildVehicleInfoChip(Icons.confirmation_number, _assignedVehicle!.licensePlate),
-                            const SizedBox(width: 16),
-                            _buildVehicleInfoChip(Icons.tag, _assignedVehicle!.id),
-                          ],
-                        ),
+                        const SizedBox(height: 32),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    );
+                  },
+                ),
                 isSmallScreen
                     ? Column(
                   children: [

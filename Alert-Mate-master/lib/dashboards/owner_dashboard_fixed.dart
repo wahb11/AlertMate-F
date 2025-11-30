@@ -262,8 +262,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
         );
       },
     );
-  }
-
   Widget _buildStaggeredItem(Widget child, int index) {
     return AnimatedBuilder(
       animation: _slideController,

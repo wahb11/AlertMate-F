@@ -172,7 +172,7 @@ class _AuthScreenState extends State<AuthScreen>
             // Auto-assign vehicle if driver
             if (user.role == 'driver' || (user.roles?.contains('driver') ?? false)) {
               final vehicleService = VehicleService();
-              vehicleService.assignAvailableVehicleToDriver(user.id, user.fullName);
+              await vehicleService.assignAvailableVehicleToDriver(user.id, user.fullName);
             }
             _navigateToDashboard(user);
           } else {
@@ -198,7 +198,7 @@ class _AuthScreenState extends State<AuthScreen>
              final vehicleService = VehicleService(); // Get singleton
              // Construct full name as user object might not be fully populated in return
              final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
-             vehicleService.assignAvailableVehicleToDriver(user.uid, fullName);
+             await vehicleService.assignAvailableVehicleToDriver(user.uid, fullName);
           }
 
           setState(() { _isLoading = false; });
