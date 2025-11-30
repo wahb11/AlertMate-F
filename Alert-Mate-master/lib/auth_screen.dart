@@ -1,3 +1,6 @@
+// COMPLETE FIXED AUTH_SCREEN.DART
+// Replace your _handleAuth() method with this updated version
+
 import 'package:flutter/material.dart';
 import 'models/user.dart';
 import 'package:country_picker/country_picker.dart';
@@ -12,11 +15,13 @@ import 'utils/page_transitions.dart';
 class AuthScreen extends StatefulWidget {
   final int? initialDashboardIndex;
   final bool? initialIsSignIn;
+  final bool isOwnerBecomingDriver; // NEW: Added this parameter
 
   const AuthScreen({
     Key? key, 
     this.initialDashboardIndex,
     this.initialIsSignIn,
+    this.isOwnerBecomingDriver = false, // NEW: Default to false
   }) : super(key: key);
 
   @override
@@ -25,6 +30,7 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen>
     with TickerProviderStateMixin {
+  // ... all your existing variables stay the same ...
   bool isSignIn = true;
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -47,33 +53,24 @@ class _AuthScreenState extends State<AuthScreen>
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  // ... all your existing helper methods stay the same ...
   String _getSelectedRole() {
     switch (_selectedDashboard) {
-      case 0:
-        return 'driver';
-      case 1:
-        return 'passenger';
-      case 2:
-        return 'owner';
-      case 3:
-        return 'admin';
-      default:
-        return 'driver';
+      case 0: return 'driver';
+      case 1: return 'passenger';
+      case 2: return 'owner';
+      case 3: return 'admin';
+      default: return 'driver';
     }
   }
 
   String _getSelectedRoleLabel() {
     switch (_selectedDashboard) {
-      case 0:
-        return 'Driver';
-      case 1:
-        return 'Passenger';
-      case 2:
-        return 'Owner';
-      case 3:
-        return 'Admin';
-      default:
-        return 'Driver';
+      case 0: return 'Driver';
+      case 1: return 'Passenger';
+      case 2: return 'Owner';
+      case 3: return 'Admin';
+      default: return 'Driver';
     }
   }
 
@@ -109,12 +106,18 @@ class _AuthScreenState extends State<AuthScreen>
     _slideController.forward();
     _scaleController.forward();
 
-    // Initialize with passed parameters if available
+    // Initialize with passed parameters
     if (widget.initialDashboardIndex != null) {
       _selectedDashboard = widget.initialDashboardIndex!;
     }
     if (widget.initialIsSignIn != null) {
       isSignIn = widget.initialIsSignIn!;
+    }
+    
+    // NEW: If owner becoming driver, set to driver role and signup mode
+    if (widget.isOwnerBecomingDriver) {
+      _selectedDashboard = 0; // Driver
+      isSignIn = false; // Sign-up mode
     }
   }
 
@@ -131,6 +134,7 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
+  // ... your existing methods stay the same ...
   void _toggleAuthMode() {
     setState(() {
       isSignIn = !isSignIn;
@@ -155,6 +159,9 @@ class _AuthScreenState extends State<AuthScreen>
     }
   }
 
+  // ============================================
+  // UPDATED: Main authentication handler
+  // ============================================
   Future<void> _handleAuth() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -165,14 +172,30 @@ class _AuthScreenState extends State<AuthScreen>
       final email = _emailController.text.trim();
 
       if (isSignIn) {
+        // SIGN IN FLOW
         try {
           final user = await _authService.signIn(email, _passwordController.text);
           setState(() { _isLoading = false; });
+          
           if (user != null) {
-            // Auto-assign vehicle if driver
+            // NEW: Check if driver and assign vehicle if needed
             if (user.role == 'driver' || (user.roles?.contains('driver') ?? false)) {
               final vehicleService = VehicleService();
-              await vehicleService.assignAvailableVehicleToDriver(user.id, user.fullName);
+              
+              // Check if this is owner becoming driver
+              if (widget.isOwnerBecomingDriver) {
+                // Assign vehicles waiting specifically for this owner
+                await vehicleService.assignOwnerPendingVehicles(
+                  user.id,
+                  user.email,
+                );
+              } else {
+                // Regular driver - assign general pending vehicles
+                await vehicleService.assignGeneralPendingVehiclesToNewDriver(
+                  user.id,
+                  user.email,
+                );
+              }
             }
             _navigateToDashboard(user);
           } else {
@@ -183,6 +206,7 @@ class _AuthScreenState extends State<AuthScreen>
           _showErrorDialog(e.toString().replaceFirst('Exception: ', ''));
         }
       } else {
+        // SIGN UP FLOW
         try {
           final user = await _authService.signUp(
             firstName: _firstNameController.text.trim(),
@@ -193,16 +217,52 @@ class _AuthScreenState extends State<AuthScreen>
             roles: [_getSelectedRole()],
           );
           
-          // Auto-assign vehicle if driver
-          if (selectedRole == 'driver' && user != null) {
-             final vehicleService = VehicleService(); // Get singleton
-             // Construct full name as user object might not be fully populated in return
-             final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
-             await vehicleService.assignAvailableVehicleToDriver(user.uid, fullName);
-          }
-
           setState(() { _isLoading = false; });
-          _showSuccessDialog('Account created! Please verify your email.');
+          
+          // NEW: Auto-assign vehicles after successful driver registration
+          if (selectedRole == 'driver' && user != null) {
+            final vehicleService = VehicleService();
+            
+            // Check if this is owner becoming driver
+            if (widget.isOwnerBecomingDriver) {
+              print('🎯 Owner completing driver registration');
+              
+              // Assign vehicles waiting specifically for THIS owner
+              List<String> assignedVehicles = await vehicleService.assignOwnerPendingVehicles(
+                user.uid,
+                email,
+              );
+              
+              if (assignedVehicles.isNotEmpty) {
+                // Show success with vehicle count
+                _showVehicleAssignedDialog(
+                  'Vehicle${assignedVehicles.length > 1 ? 's' : ''} Assigned!',
+                  'Your ${assignedVehicles.length} vehicle${assignedVehicles.length > 1 ? 's have' : ' has'} been automatically assigned to you. You can now see ${assignedVehicles.length > 1 ? 'them' : 'it'} in your driver dashboard.',
+                );
+              } else {
+                _showSuccessDialog('Driver account created! Please verify your email.');
+              }
+            } else {
+              print('🚗 Regular driver signup');
+              
+              // Regular driver - assign any pending vehicle
+              bool vehicleAssigned = await vehicleService.assignGeneralPendingVehiclesToNewDriver(
+                user.uid,
+                email,
+              );
+              
+              if (vehicleAssigned) {
+                _showVehicleAssignedDialog(
+                  'Vehicle Assigned!',
+                  'A vehicle has been automatically assigned to you.',
+                );
+              } else {
+                _showSuccessDialog('Driver account created! Please verify your email.');
+              }
+            }
+          } else {
+            _showSuccessDialog('Account created! Please verify your email.');
+          }
         } catch (e) {
           setState(() { _isLoading = false; });
           _showErrorDialog(e.toString().replaceFirst('Exception: ', ''));
@@ -211,6 +271,85 @@ class _AuthScreenState extends State<AuthScreen>
     }
   }
 
+  // NEW: Success dialog specifically for vehicle assignment
+  void _showVehicleAssignedDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.check_circle, color: Colors.green.shade600, size: 48),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Please verify your email to continue.',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                isSignIn = true;
+                _firstNameController.clear();
+                _lastNameController.clear();
+                _phoneController.clear();
+                _passwordController.clear();
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade600,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 45),
+            ),
+            child: const Text('Continue to Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ... all your existing helper methods stay the same ...
   void _showVerificationDialog() {
     showDialog(
       context: context,
@@ -267,7 +406,7 @@ class _AuthScreenState extends State<AuthScreen>
                 labelText: 'Email',
                 border: OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.emailAddress,
+              keyboardType: TextInputType.emailInput,
             ),
           ],
         ),
@@ -371,7 +510,6 @@ class _AuthScreenState extends State<AuthScreen>
       FadeScalePageRoute(page: dashboardScreen),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

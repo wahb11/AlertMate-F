@@ -6,12 +6,8 @@ class VehicleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
 
-  // Generate unique vehicle ID
-  String generateVehicleId() {
-    return 'VEH_${DateTime.now().millisecondsSinceEpoch}';
-  }
-
-  // Add vehicle with driver assignment option
+  /// Add vehicle with smart driver assignment logic
+  /// Returns: Vehicle if successful, null if owner needs driver registration
   Future<Vehicle?> addVehicleWithDriverCheck({
     required String make,
     required String model,
@@ -24,6 +20,7 @@ class VehicleService {
     try {
       print('🚗 Adding vehicle: $make $model');
       
+      // Create vehicle document
       DocumentReference vehicleRef = await _firestore.collection('vehicles').add({
         'make': make,
         'model': model,
@@ -33,8 +30,11 @@ class VehicleService {
         'ownerEmail': ownerEmail,
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'Offline',
-        'alertness': 'Good',
+        'alertness': 0,
         'location': 'Unknown',
+        'assignedDriverId': null,
+        'pendingAssignment': !willOwnerDrive, // Mark for auto-assignment only if owner won't drive
+        'pendingOwnerAssignment': willOwnerDrive, // NEW: Flag if waiting for OWNER to become driver
       });
 
       print('✅ Vehicle created: ${vehicleRef.id}');
@@ -53,7 +53,7 @@ class VehicleService {
             driverEmail: ownerEmail,
           );
           
-          print('✅ Vehicle auto-assigned to driver!');
+          print('✅ Vehicle auto-assigned to owner-driver!');
           return Vehicle(
             id: vehicleRef.id,
             make: make,
@@ -63,28 +63,34 @@ class VehicleService {
             ownerId: ownerId,
             assignedDriverId: ownerId,
             status: 'Active',
+            alertness: 0,
           );
         } else {
-          print('❌ Owner is NOT registered as driver');
+          print('❌ Owner is NOT registered as driver - needs driver signup');
+          // Vehicle is created and will be assigned when owner completes driver signup
           return null;
         }
+      } else {
+        print('📋 Vehicle added without driver - will be assigned to next driver signup');
+        // Vehicle created successfully, will be auto-assigned to next driver
+        return Vehicle(
+          id: vehicleRef.id,
+          make: make,
+          model: model,
+          year: year,
+          licensePlate: licensePlate,
+          ownerId: ownerId,
+          status: 'Offline',
+          alertness: 0,
+        );
       }
-      
-      return Vehicle(
-        id: vehicleRef.id,
-        make: make,
-        model: model,
-        year: year,
-        licensePlate: licensePlate,
-        ownerId: ownerId,
-      );
     } catch (e) {
       print('❌ Error adding vehicle: $e');
       rethrow;
     }
   }
 
-  // Check if user is registered as driver
+  /// Check if user is registered as driver
   Future<bool> _isUserRegisteredAsDriver(String userId) async {
     try {
       print('🔍 Checking if user $userId is registered as driver...');
@@ -109,7 +115,7 @@ class VehicleService {
     }
   }
 
-  // Assign vehicle to driver
+  /// Assign vehicle to driver
   Future<void> assignVehicleToDriver({
     required String vehicleId,
     required String driverId,
@@ -118,17 +124,31 @@ class VehicleService {
     try {
       print('🔗 Assigning vehicle $vehicleId to driver $driverId');
       
+      // Get driver name
+      DocumentSnapshot driverDoc = 
+          await _firestore.collection('users').doc(driverId).get();
+      String driverName = 'Unknown Driver';
+      if (driverDoc.exists) {
+        Map<String, dynamic> data = driverDoc.data() as Map<String, dynamic>;
+        driverName = data['name'] ?? data['email'] ?? 'Unknown Driver';
+      }
+      
       await _firestore.collection('vehicles').doc(vehicleId).update({
         'assignedDriverId': driverId,
         'assignedDriverEmail': driverEmail,
+        'driverName': driverName,
         'assignedAt': FieldValue.serverTimestamp(),
         'status': 'Active',
+        'pendingAssignment': false,
+        'pendingOwnerAssignment': false, // Clear this flag too
+        'lastUpdate': DateTime.now().toString(),
       });
 
       await _firestore.collection('vehicleAssignments').add({
         'vehicleId': vehicleId,
         'driverId': driverId,
         'driverEmail': driverEmail,
+        'driverName': driverName,
         'assignedAt': FieldValue.serverTimestamp(),
         'status': 'active',
       });
@@ -140,26 +160,68 @@ class VehicleService {
     }
   }
 
-  // Assign available vehicle to driver (for auth flow)
-  Future<void> assignAvailableVehicleToDriver(String driverId, String driverName) async {
+  /// CRITICAL: Assign vehicles specifically waiting for THIS owner to become a driver
+  /// This is called when owner completes driver registration
+  Future<List<String>> assignOwnerPendingVehicles(
+    String ownerId, 
+    String ownerEmail,
+  ) async {
     try {
-      print('🚗 Looking for available vehicles for driver: $driverName');
+      print('🎯 Looking for vehicles waiting for owner $ownerId to become a driver');
       
-      DocumentSnapshot driverDoc = 
-          await _firestore.collection('users').doc(driverId).get();
-      
-      if (!driverDoc.exists) {
-        print('❌ Driver document not found');
-        return;
+      // Find ALL vehicles owned by this user that are waiting for them to become a driver
+      QuerySnapshot ownerPendingVehicles = await _firestore
+          .collection('vehicles')
+          .where('ownerId', isEqualTo: ownerId)
+          .where('pendingOwnerAssignment', isEqualTo: true)
+          .where('assignedDriverId', isNull: true)
+          .get();
+
+      List<String> assignedVehicleIds = [];
+
+      if (ownerPendingVehicles.docs.isNotEmpty) {
+        print('✅ Found ${ownerPendingVehicles.docs.length} vehicle(s) waiting for owner');
+        
+        // Assign ALL vehicles that were waiting for this owner
+        for (var doc in ownerPendingVehicles.docs) {
+          String vehicleId = doc.id;
+          
+          await assignVehicleToDriver(
+            vehicleId: vehicleId,
+            driverId: ownerId,
+            driverEmail: ownerEmail,
+          );
+          
+          assignedVehicleIds.add(vehicleId);
+          print('✅ Assigned vehicle $vehicleId to owner-driver');
+        }
+        
+        return assignedVehicleIds;
       }
 
-      Map<String, dynamic> driverData = driverDoc.data() as Map<String, dynamic>;
-      String driverEmail = driverData['email'] ?? '';
+      print('⚠️ No vehicles waiting for this owner');
+      return [];
+    } catch (e) {
+      print('❌ Error assigning owner pending vehicles: $e');
+      return [];
+    }
+  }
 
+  /// Auto-assign general pending vehicles to new driver during signup
+  /// This is for vehicles where owner said "No, I won't drive"
+  Future<bool> assignGeneralPendingVehiclesToNewDriver(
+    String driverId, 
+    String driverEmail,
+  ) async {
+    try {
+      print('🚗 Looking for general pending vehicles for new driver: $driverId');
+      
+      // Find vehicles with pendingAssignment=true (owner said they won't drive)
       QuerySnapshot unassignedVehicles = await _firestore
           .collection('vehicles')
-          .where('ownerId', isEqualTo: driverId)
+          .where('pendingAssignment', isEqualTo: true)
           .where('assignedDriverId', isNull: true)
+          .orderBy('createdAt', descending: false) // Oldest first
           .limit(1)
           .get();
 
@@ -172,16 +234,49 @@ class VehicleService {
           driverEmail: driverEmail,
         );
         
-        print('✅ Vehicle auto-assigned to new driver!');
-      } else {
-        print('⚠️ No unassigned vehicles found for this driver');
+        print('✅ Assigned general pending vehicle to new driver: $vehicleId');
+        return true;
       }
+
+      print('⚠️ No general pending vehicles found for assignment');
+      return false;
     } catch (e) {
-      print('❌ Error assigning available vehicle: $e');
+      print('❌ Error assigning general pending vehicles: $e');
+      return false;
     }
   }
 
-  // Get vehicles assigned to driver
+  /// Get all pending (unassigned) vehicles
+  Future<List<Vehicle>> getPendingVehicles() async {
+    try {
+      print('🚗 Fetching pending vehicles');
+      
+      QuerySnapshot snapshot = await _firestore
+          .collection('vehicles')
+          .where('assignedDriverId', isNull: true)
+          .get();
+
+      List<Vehicle> vehicles = snapshot.docs
+          .where((doc) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            return data['pendingAssignment'] == true || 
+                   data['pendingOwnerAssignment'] == true;
+          })
+          .map((doc) => Vehicle.fromMap({
+            'id': doc.id,
+            ...doc.data() as Map<String, dynamic>,
+          }))
+          .toList();
+
+      print('✅ Found ${vehicles.length} pending vehicles');
+      return vehicles;
+    } catch (e) {
+      print('❌ Error fetching pending vehicles: $e');
+      return [];
+    }
+  }
+
+  /// Get vehicles assigned to driver
   Future<List<Vehicle>> getAssignedVehiclesForDriver(String driverId) async {
     try {
       print('🚗 Fetching vehicles for driver: $driverId');
@@ -206,7 +301,7 @@ class VehicleService {
     }
   }
 
-  // Get all vehicles for owner
+  /// Get all vehicles for owner
   Future<List<Vehicle>> getVehiclesForOwner(String ownerId) async {
     try {
       print('🚗 Fetching vehicles for owner: $ownerId');
@@ -231,7 +326,7 @@ class VehicleService {
     }
   }
 
-  // Get single vehicle stream for driver (returns first vehicle)
+  /// Get single vehicle stream for driver (returns first vehicle)
   Stream<Vehicle?> getVehicleByDriverStream(String driverId) {
     try {
       print('📡 Streaming vehicle for driver: $driverId');
@@ -259,7 +354,7 @@ class VehicleService {
     }
   }
 
-  // Get vehicles stream for owner (returns list)
+  /// Get vehicles stream for owner (returns list)
   Stream<List<Vehicle>> getVehiclesByOwnerStream(String ownerId) {
     try {
       print('📡 Streaming vehicles for owner: $ownerId');
@@ -285,7 +380,7 @@ class VehicleService {
     }
   }
 
-  // Update vehicle status
+  /// Update vehicle status
   Future<void> updateVehicleStatus(String vehicleId, String status) async {
     try {
       print('🔄 Updating vehicle $vehicleId status to: $status');
@@ -302,10 +397,10 @@ class VehicleService {
     }
   }
 
-  // Update vehicle alertness
-  Future<void> updateVehicleAlertness(String vehicleId, String alertness) async {
+  /// Update vehicle alertness (0-100)
+  Future<void> updateVehicleAlertness(String vehicleId, int alertness) async {
     try {
-      print('🔄 Updating vehicle $vehicleId alertness to: $alertness');
+      print('🔄 Updating vehicle $vehicleId alertness to: $alertness%');
       
       await _firestore.collection('vehicles').doc(vehicleId).update({
         'alertness': alertness,
@@ -319,7 +414,7 @@ class VehicleService {
     }
   }
 
-  // Update vehicle location
+  /// Update vehicle location
   Future<void> updateVehicleLocation(String vehicleId, String location) async {
     try {
       print('📍 Updating vehicle $vehicleId location to: $location');
@@ -336,7 +431,7 @@ class VehicleService {
     }
   }
 
-  // Get vehicle by ID
+  /// Get vehicle by ID
   Future<Vehicle?> getVehicleById(String vehicleId) async {
     try {
       print('🔍 Fetching vehicle: $vehicleId');
@@ -362,63 +457,22 @@ class VehicleService {
     }
   }
 
-  // Add vehicle (for backward compatibility)
-  Future<void> addVehicle(Vehicle vehicle) async {
-    try {
-      print('🚗 Adding vehicle via addVehicle');
-      
-      await _firestore.collection('vehicles').doc(vehicle.id).set({
-        'make': vehicle.make,
-        'model': vehicle.model,
-        'year': vehicle.year,
-        'licensePlate': vehicle.licensePlate,
-        'ownerId': vehicle.ownerId,
-        'assignedDriverId': vehicle.assignedDriverId,
-        'driverName': vehicle.driverName,
-        'status': vehicle.status,
-        'alertness': vehicle.alertness,
-        'location': vehicle.location,
-        'lastUpdate': vehicle.lastUpdate,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      print('✅ Vehicle added successfully');
-    } catch (e) {
-      print('❌ Error adding vehicle: $e');
-      rethrow;
-    }
-  }
-
-  // Get all vehicles
-  Future<List<Vehicle>> getAllVehicles() async {
-    try {
-      print('🚗 Fetching all vehicles');
-      
-      QuerySnapshot snapshot = await _firestore
-          .collection('vehicles')
-          .get();
-
-      List<Vehicle> vehicles = snapshot.docs
-          .map((doc) => Vehicle.fromMap({
-            'id': doc.id,
-            ...doc.data() as Map<String, dynamic>,
-          }))
-          .toList();
-
-      print('✅ Found ${vehicles.length} total vehicles');
-      return vehicles;
-    } catch (e) {
-      print('❌ Error fetching all vehicles: $e');
-      return [];
-    }
-  }
-
-  // Delete vehicle
+  /// Delete vehicle
   Future<void> deleteVehicle(String vehicleId) async {
     try {
       print('🗑️ Deleting vehicle: $vehicleId');
       
       await _firestore.collection('vehicles').doc(vehicleId).delete();
+      
+      // Also delete assignment records
+      QuerySnapshot assignments = await _firestore
+          .collection('vehicleAssignments')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .get();
+      
+      for (var doc in assignments.docs) {
+        await doc.reference.delete();
+      }
       
       print('✅ Vehicle deleted successfully');
     } catch (e) {
@@ -427,7 +481,7 @@ class VehicleService {
     }
   }
 
-  // Unassign vehicle from driver
+  /// Unassign vehicle from driver
   Future<void> unassignVehicleFromDriver(String vehicleId) async {
     try {
       print('🔓 Unassigning vehicle: $vehicleId');
@@ -435,8 +489,24 @@ class VehicleService {
       await _firestore.collection('vehicles').doc(vehicleId).update({
         'assignedDriverId': FieldValue.delete(),
         'assignedDriverEmail': FieldValue.delete(),
+        'driverName': FieldValue.delete(),
         'status': 'Offline',
+        'pendingAssignment': true, // Mark as pending again
       });
+
+      // Update assignment record status
+      QuerySnapshot assignments = await _firestore
+          .collection('vehicleAssignments')
+          .where('vehicleId', isEqualTo: vehicleId)
+          .where('status', isEqualTo: 'active')
+          .get();
+      
+      for (var doc in assignments.docs) {
+        await doc.reference.update({
+          'status': 'inactive',
+          'unassignedAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       print('✅ Vehicle unassigned successfully');
     } catch (e) {
