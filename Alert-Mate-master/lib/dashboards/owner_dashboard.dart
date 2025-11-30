@@ -519,646 +519,151 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildFleetOverview() {
-    return StreamBuilder<List<Vehicle>>(
-      stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+ Widget _buildFleetOverview() {
+  return StreamBuilder<List<Vehicle>>(
+    stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
 
-        final vehicles = snapshot.data ?? [];
-        
-        List<Vehicle> filteredVehicles = vehicles.where((vehicle) {
-          bool matchesSearch = _searchQuery.isEmpty ||
-              (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-              vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
+      final vehicles = snapshot.data ?? [];
 
-          bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
+      // --- FILTERING ---
+      List<Vehicle> filteredVehicles = vehicles.where((vehicle) {
+        bool matchesSearch = _searchQuery.isEmpty ||
+            (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+            vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
 
-          return matchesSearch && matchesFilter;
-        }).toList();
+        bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
 
-        return Container(
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Fleet Overview',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+        return matchesSearch && matchesFilter;
+      }).toList();
+
+      return Container(
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ------- TABLE HEADER -------
+            Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1.4),
+                1: FlexColumnWidth(1.6),
+                2: FlexColumnWidth(1.2),
+                3: FlexColumnWidth(1.2),
+                4: FlexColumnWidth(1.6),
+                5: FlexColumnWidth(1.6),
+                6: FlexColumnWidth(0.8),
+              },
+              border: const TableBorder(
+                horizontalInside: BorderSide(color: Colors.black12),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Real-time monitoring of all vehicles',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      onChanged: (value) => setState(() => _searchQuery = value),
-                      decoration: InputDecoration(
-                        hintText: 'Search by driver name or vehicle ID...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.filter_list, color: Colors.grey[600], size: 20),
-                        const SizedBox(width: 8),
-                        DropdownButton<String>(
-                          value: _statusFilter,
-                          underline: const SizedBox(),
-                          items: ['All Status', 'Active', 'Break', 'Critical', 'Offline']
-                              .map((status) => DropdownMenuItem(
-                            value: status,
-                            child: Text(status),
-                          ))
-                              .toList(),
-                          onChanged: (value) => setState(() => _statusFilter = value!),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (filteredVehicles.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(child: Text('No vehicles found')),
-                )
-              else
-                Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.0),
-                    1: FlexColumnWidth(1.5),
-                    2: FlexColumnWidth(1.0),
-                    3: FlexColumnWidth(1.5),
-                    4: FlexColumnWidth(1.5),
-                    5: FlexColumnWidth(1.2),
-                    6: FlexColumnWidth(1.0),
-                  },
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade100),
                   children: [
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      children: [
-                        _buildTableHeader('Vehicle ID'),
-                        _buildTableHeader('Driver'),
-                        _buildTableHeader('Status'),
-                        _buildTableHeader('Alertness'),
-                        _buildTableHeader('Location'),
-                        _buildTableHeader('Last Update'),
-                        _buildTableHeader('Actions'),
-                      ],
-                    ),
-                    ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle)).toList(),
+                    _buildTableHeader("Vehicle ID"),
+                    _buildTableHeader("Driver Name"),
+                    _buildTableHeader("Status"),
+                    _buildTableHeader("Alertness"),
+                    _buildTableHeader("Location"),
+                    _buildTableHeader("Last Update"),
+                    _buildTableHeader("Actions"),
                   ],
                 ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _buildTableHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Colors.black54,
-        ),
-      ),
-    );
-  }
-
-  TableRow _buildVehicleRow(Vehicle vehicle) {
-    return TableRow(
-      children: [
-        _buildTableCell(vehicle.id),
-        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
-        _buildStatusBadge(vehicle.status),
-        _buildAlertnessCell(vehicle.alertness),
-        _buildTableCell(vehicle.location ?? 'Unknown'),
-        _buildTableCell(vehicle.lastUpdate ?? 'N/A'),
-        _buildActionsCell(),
-      ],
-    );
-  }
-
-  Widget _buildTableCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    switch (status) {
-      case 'Active':
-        color = AppColors.success;
-        break;
-      case 'Break':
-        color = AppColors.primary;
-        break;
-      case 'Critical':
-        color = AppColors.danger;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          status,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlertnessCell(int alertnessValue) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Text(
-            '$alertnessValue%',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: alertnessValue / 100,
-                minHeight: 6,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  alertnessValue >= 80 ? AppColors.success :
-                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCell() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('View vehicle details'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.phone_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Calling driver...'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmergency() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Emergency Contacts',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Quick access to emergency services and contacts',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Police',
-                  '15',
-                  Icons.local_police,
-                  const Color(0xFF2196F3),
-                  const Color(0xFFE3F2FD),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Ambulance',
-                  '1122',
-                  Icons.local_hospital,
-                  Colors.red,
-                  const Color(0xFFFFEBEE),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Fire Department',
-                  '16',
-                  Icons.local_fire_department,
-                  const Color(0xFFFF6F00),
-                  const Color(0xFFFFF3E0),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Motorway Police',
-                  '130',
-                  Icons.car_crash,
-                  const Color(0xFF4CAF50),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Colors.black54,
-        ),
-      ),
-    );
-  }
-
-  TableRow _buildVehicleRow(Vehicle vehicle) {
-    return TableRow(
-      children: [
-        _buildTableCell(vehicle.id),
-        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
-        _buildStatusBadge(vehicle.status),
-        _buildAlertnessCell(vehicle.alertness),
-        _buildTableCell(vehicle.location ?? 'Unknown'),
-        _buildTableCell(vehicle.lastUpdate ?? 'N/A'),
-        _buildActionsCell(),
-      ],
-    );
-  }
-
-  Widget _buildTableCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    switch (status) {
-      case 'Active':
-        color = AppColors.success;
-        break;
-      case 'Break':
-        color = AppColors.primary;
-        break;
-      case 'Critical':
-        color = AppColors.danger;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          status,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlertnessCell(int alertnessValue) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Text(
-            '$alertnessValue%',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: alertnessValue / 100,
-                minHeight: 6,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  alertnessValue >= 80 ? AppColors.success :
-                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCell() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('View vehicle details'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.phone_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Calling driver...'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmergency() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(40.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Emergency Contacts',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Quick access to emergency services and contacts',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Police',
-                  '15',
-                  Icons.local_police,
-                  const Color(0xFF2196F3),
-                  const Color(0xFFE3F2FD),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Ambulance',
-                  '1122',
-                  Icons.local_hospital,
-                  Colors.red,
-                  const Color(0xFFFFEBEE),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Fire Department',
-                  '16',
-                  Icons.local_fire_department,
-                  const Color(0xFFFF6F00),
-                  const Color(0xFFFFF3E0),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Motorway Police',
-                  '130',
-                  Icons.car_crash,
-                  const Color(0xFF4CAF50),
-                  const Color(0xFFE8F5E9),
-                )),
+                // ------- VEHICLE ROWS -------
+                for (var v in filteredVehicles) _buildVehicleRow(v),
               ],
             ),
-            const SizedBox(height: 32),
-            _buildEmergencyContactsTable(),
           ],
+        ),
+      );
+    },
+  );
+}
+
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    switch (status) {
+      case 'Active':
+        color = AppColors.success;
+        break;
+      case 'Break':
+        color = AppColors.primary;
+        break;
+      case 'Critical':
+        color = AppColors.danger;
+        break;
+      default:
+        color = Colors.grey;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          status,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
   }
 
-  Widget _buildEmergencyContactsTable() {
-    return StreamBuilder<List<EmergencyContact>>(
-      stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
+  Widget _buildAlertnessCell(int alertnessValue) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Text(
+            '$alertnessValue%',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
             ),
-            child: Text('Error loading contacts: ${snapshot.error}'),
-          );
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final contacts = snapshot.data ?? [];
-
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Fleet Contacts',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      _showAddContactDialog();
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Contact'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: alertnessValue / 100,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  alertnessValue >= 80 ? AppColors.success :
+                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+                ),
               ),
-              const SizedBox(height: 24),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1.5),
-                  1: FlexColumnWidth(1.2),
-                  2: FlexColumnWidth(1.8),
-                  3: FlexColumnWidth(1.0),
-                  4: FlexColumnWidth(1.0),
-                  5: FlexColumnWidth(0.8),
-                  6: FlexColumnWidth(1.0),
-                },
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    children: [
-                      _buildTableHeader('Name'),
-                      _buildTableHeader('Relationship'),
-                      _buildTableHeader('Contact'),
-                      _buildTableHeader('Priority'),
-                      _buildTableHeader('Methods'),
-                      _buildTableHeader('Status'),
-                      _buildTableHeader('Actions'),
-                    ],
-                  ),
-                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
-                ],
-              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsCell() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Row(
         children: [
           IconButton(
