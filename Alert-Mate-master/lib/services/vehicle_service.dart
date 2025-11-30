@@ -220,14 +220,17 @@ class VehicleService {
       QuerySnapshot unassignedVehicles = await _firestore
           .collection('vehicles')
           .where('pendingAssignment', isEqualTo: true)
-          .where('assignedDriverId', isNull: true)
           .orderBy('createdAt', descending: false) // Oldest first
-          .limit(1)
           .get();
-
-      if (unassignedVehicles.docs.isNotEmpty) {
-        String vehicleId = unassignedVehicles.docs.first.id;
         
+      // Filter for vehicles without an assigned driver
+      var availableVehicles = unassignedVehicles.docs.where((doc) {
+        var data = doc.data() as Map<String, dynamic>;
+        return data['assignedDriverId'] == null || data['assignedDriverId'] == '';
+      }).toList();
+
+      if (availableVehicles.isNotEmpty) {
+        String vehicleId = availableVehicles.first.id;      
         await assignVehicleToDriver(
           vehicleId: vehicleId,
           driverId: driverId,

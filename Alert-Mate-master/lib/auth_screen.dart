@@ -406,7 +406,7 @@ class _AuthScreenState extends State<AuthScreen>
                 labelText: 'Email',
                 border: OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.emailInput,
+              keyboardType: TextInputType.emailAddress,
             ),
           ],
         ),

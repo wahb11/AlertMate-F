@@ -75,6 +75,157 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     }
   }
 
+  Future<void> _showAddVehicleDialog() async {
+    final formKey = GlobalKey<FormState>();
+    String make = '';
+    String model = '';
+    String year = '';
+    String licensePlate = '';
+    bool willDrive = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Add New Vehicle'),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Make'),
+                    validator: (value) => value!.isEmpty ? 'Required' : null,
+                    onSaved: (value) => make = value!,
+                  ),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Model'),
+                    validator: (value) => value!.isEmpty ? 'Required' : null,
+                    onSaved: (value) => model = value!,
+                  ),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'Year'),
+                    validator: (value) => value!.isEmpty ? 'Required' : null,
+                    onSaved: (value) => year = value!,
+                  ),
+                  TextFormField(
+                    decoration: const InputDecoration(labelText: 'License Plate'),
+                    validator: (value) => value!.isEmpty ? 'Required' : null,
+                    onSaved: (value) => licensePlate = value!,
+                  ),
+                  const SizedBox(height: 16),
+                  CheckboxListTile(
+                    title: const Text('I will be driving this vehicle'),
+                    subtitle: const Text('Assign this vehicle to me'),
+                    value: willDrive,
+                    onChanged: (value) {
+                      setState(() {
+                        willDrive = value!;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    activeColor: AppColors.primary,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    formKey.currentState!.save();
+                    Navigator.pop(context);
+                    
+                    try {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Adding vehicle...')),
+                      );
+
+                      final result = await _vehicleService.addVehicleWithDriverCheck(
+                        make: make,
+                        model: model,
+                        year: year,
+                        licensePlate: licensePlate,
+                        ownerId: widget.user.id,
+                        ownerEmail: widget.user.email,
+                        willOwnerDrive: willDrive,
+                      );
+
+                      if (result == null && willDrive) {
+                        if (mounted) {
+                          _showDriverRegistrationDialog();
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(willDrive 
+                                ? 'Vehicle added and assigned to you!' 
+                                : 'Vehicle added successfully'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                          _loadVehicles();
+                        }
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                        );
+                      }
+                    }
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  void _showDriverRegistrationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Driver Registration Required'),
+        content: const Text(
+          'To drive this vehicle, you need to be registered as a driver. '
+          'Would you like to register now?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AuthScreen(
+                    isOwnerBecomingDriver: true,
+                    initialIsSignIn: false,
+                  ),
+                ),
+              );
+            },
+            child: const Text('Register'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -365,94 +516,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  Future<void> _showAddVehicleDialog() async {
-    final formKey = GlobalKey<FormState>();
-    String make = '';
-    String model = '';
-    String year = '';
-    String licensePlate = '';
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add New Vehicle'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Make'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-                onSaved: (value) => make = value!,
-              ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Model'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-                onSaved: (value) => model = value!,
-              ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Year'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-                onSaved: (value) => year = value!,
-              ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'License Plate'),
-                validator: (value) => value!.isEmpty ? 'Required' : null,
-                onSaved: (value) => licensePlate = value!,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                formKey.currentState!.save();
-                
-                final newVehicle = Vehicle(
-                  id: _vehicleService.generateVehicleId(),
-                  make: make,
-                  model: model,
-                  year: year,
-                  licensePlate: licensePlate,
-                  ownerId: widget.user.id,
-                  status: 'Offline',
-                  alertness: '100',
-                  location: 'HQ',
-                  lastUpdate: 'Just now',
-                );
-
-                await _vehicleService.addVehicle(newVehicle);
-                
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Vehicle added successfully')),
-                  );
-                  _loadVehicles();
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFleetOverview() {
     return StreamBuilder<List<Vehicle>>(
       stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -663,40 +730,39 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildAlertnessCell(String alertness) {
-  final alertnessValue = int.tryParse(alertness) ?? 0;
-  
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(
-      children: [
-        Text(
-          '$alertnessValue%',
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+  Widget _buildAlertnessCell(int alertnessValue) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Text(
+            '$alertnessValue%',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: alertnessValue / 100,
-              minHeight: 6,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                alertnessValue >= 80 ? AppColors.success :
-                alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: alertnessValue / 100,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  alertnessValue >= 80 ? AppColors.success :
+                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionsCell() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
