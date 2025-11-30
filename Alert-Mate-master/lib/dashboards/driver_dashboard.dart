@@ -5,7 +5,9 @@ import 'dart:io';
 import 'dart:math';
 import '../models/user.dart';
 import '../models/vehicle.dart';
+import '../models/emergency_contact.dart';
 import '../services/vehicle_service.dart';
+import '../services/emergency_contact_service.dart';
 import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
@@ -35,36 +37,8 @@ class _DriverDashboardState extends State<DriverDashboard>
   
   Vehicle? _assignedVehicle;
   final VehicleService _vehicleService = VehicleService();
-  // make emergency contacts part of state so UI can modify them
-  final List<Map<String, dynamic>> _emergencyContacts = [
-    {
-      'name': 'Sarah Johnson',
-      'relationship': 'Spouse',
-      'phone': '+1 (555) 123-4567',
-      'email': 'sarah@example.com',
-      'priority': 'primary',
-      'methods': ['call', 'sms', 'email'],
-      'enabled': true,
-    },
-    {
-      'name': 'Mike Chen',
-      'relationship': 'Fleet Manager',
-      'phone': '+1 (555) 987-6543',
-      'email': 'mike@company.com',
-      'priority': 'secondary',
-      'methods': ['sms', 'email'],
-      'enabled': true,
-    },
-    {
-      'name': 'Emergency Services',
-      'relationship': '911',
-      'phone': '911',
-      'email': '',
-      'priority': 'primary',
-      'methods': ['call'],
-      'enabled': true,
-    },
-  ];
+  final EmergencyContactService _emergencyContactService = EmergencyContactService();
+  
   
   // Animation controllers
   late AnimationController _fadeController;
@@ -1404,7 +1378,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isEmpty || 
                     relationshipController.text.isEmpty || 
                     phoneController.text.isEmpty) {
@@ -1414,21 +1388,34 @@ class _DriverDashboardState extends State<DriverDashboard>
                   return;
                 }
                 
-                setState(() {
-                  _emergencyContacts.add({
-                    'name': nameController.text,
-                    'relationship': relationshipController.text,
-                    'phone': phoneController.text,
-                    'email': emailController.text,
-                    'priority': priority,
-                    'methods': methods,
-                    'enabled': true,
-                  });
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${nameController.text} added to emergency contacts')),
-                );
+                try {
+                  await _emergencyContactService.addEmergencyContact(
+                    userId: widget.user.id,
+                    userRole: 'driver',
+                    contactData: {
+                      'name': nameController.text,
+                      'relationship': relationshipController.text,
+                      'phone': phoneController.text,
+                      'email': emailController.text,
+                      'priority': priority,
+                      'methods': methods,
+                      'enabled': true,
+                    },
+                  );
+                  
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${nameController.text} added to emergency contacts')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error adding contact: $e')),
+                    );
+                  }
+                }
               },
               child: const Text('Add Contact'),
             ),
@@ -1439,14 +1426,13 @@ class _DriverDashboardState extends State<DriverDashboard>
   }
 
   // Edit Contact Dialog
-  void _showEditContactDialog(int index) {
-    final contact = _emergencyContacts[index];
-    final nameController = TextEditingController(text: contact['name']);
-    final relationshipController = TextEditingController(text: contact['relationship']);
-    final phoneController = TextEditingController(text: contact['phone']);
-    final emailController = TextEditingController(text: contact['email']);
-    String priority = contact['priority'];
-    List<String> methods = List<String>.from(contact['methods']);
+  void _showEditContactDialog(EmergencyContact contact) {
+    final nameController = TextEditingController(text: contact.name);
+    final relationshipController = TextEditingController(text: contact.relationship);
+    final phoneController = TextEditingController(text: contact.phone);
+    final emailController = TextEditingController(text: contact.email);
+    String priority = contact.priority;
+    List<String> methods = List<String>.from(contact.methods);
 
     showDialog(
       context: context,
@@ -1557,7 +1543,7 @@ class _DriverDashboardState extends State<DriverDashboard>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (nameController.text.isEmpty || 
                     relationshipController.text.isEmpty || 
                     phoneController.text.isEmpty) {
@@ -1567,21 +1553,33 @@ class _DriverDashboardState extends State<DriverDashboard>
                   return;
                 }
                 
-                setState(() {
-                  _emergencyContacts[index] = {
-                    'name': nameController.text,
-                    'relationship': relationshipController.text,
-                    'phone': phoneController.text,
-                    'email': emailController.text,
-                    'priority': priority,
-                    'methods': methods,
-                    'enabled': contact['enabled'],
-                  };
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${nameController.text} updated successfully')),
-                );
+                try {
+                  await _emergencyContactService.updateEmergencyContact(
+                    contactId: contact.id,
+                    contactData: {
+                      'name': nameController.text,
+                      'relationship': relationshipController.text,
+                      'phone': phoneController.text,
+                      'email': emailController.text,
+                      'priority': priority,
+                      'methods': methods,
+                      'enabled': contact.enabled,
+                    },
+                  );
+                  
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${nameController.text} updated successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating contact: $e')),
+                    );
+                  }
+                }
               },
               child: const Text('Save Changes'),
             ),
@@ -1592,125 +1590,154 @@ class _DriverDashboardState extends State<DriverDashboard>
   }
 
   Widget _buildEmergencyContactsTable() {
-    // uses the stateful _emergencyContacts defined on the State
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return StreamBuilder<List<EmergencyContact>>(
+      stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text('Error loading contacts: ${snapshot.error}'),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final contacts = snapshot.data ?? [];
+
+        return Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Emergency Contacts',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Emergency Contacts',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manage your emergency contact list',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showAddContactDialog();
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Contact'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2196F3),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.5),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1.8),
+                  3: FlexColumnWidth(1.0),
+                  4: FlexColumnWidth(1.0),
+                  5: FlexColumnWidth(0.8),
+                  6: FlexColumnWidth(1.0),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    children: [
+                      _buildTableHeader('Name'),
+                      _buildTableHeader('Relationship'),
+                      _buildTableHeader('Contact'),
+                      _buildTableHeader('Priority'),
+                      _buildTableHeader('Methods'),
+                      _buildTableHeader('Status'),
+                      _buildTableHeader('Actions'),
+                    ],
+                  ),
+                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
                   Text(
-                    'Manage your emergency contact list',
+                    'Last system test: Just now • ${contacts.length} active contacts',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.grey[600],
                     ),
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-              onPressed: () {
-                _showAddContactDialog();
-              },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Contact'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 24),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1.5),
-              1: FlexColumnWidth(1.2),
-              2: FlexColumnWidth(1.8),
-              3: FlexColumnWidth(1.0),
-              4: FlexColumnWidth(1.0),
-              5: FlexColumnWidth(0.8),
-              6: FlexColumnWidth(1.0),
-            },
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                children: [
-                  _buildTableHeader('Name'),
-                  _buildTableHeader('Relationship'),
-                  _buildTableHeader('Contact'),
-                  _buildTableHeader('Priority'),
-                  _buildTableHeader('Methods'),
-                  _buildTableHeader('Status'),
-                  _buildTableHeader('Actions'),
-                ],
-              ),
-              ...List.generate(_emergencyContacts.length, (i) => _buildEmergencyContactRow(i, _emergencyContacts[i])),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 8),
-              Text(
-                'Last system test: Just now • ${_emergencyContacts.length} active contacts',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  TableRow _buildEmergencyContactRow(int index, Map<String, dynamic> contact) {
+
+  TableRow _buildEmergencyContactRow(EmergencyContact contact) {
     return TableRow(
       children: [
-        _buildTableCell(contact['name']),
-        _buildTableCell(contact['relationship']),
-        _buildContactInfoCell(contact['phone'], contact['email']),
-        _buildPriorityBadgeCell(contact['priority']),
-        _buildMethodsCell(contact['methods']),
-        _buildStatusToggleCell(index),
-        _buildContactActionsCell(index),
+        _buildTableCell(contact.name),
+        _buildTableCell(contact.relationship),
+        _buildContactInfoCell(contact.phone, contact.email),
+        _buildPriorityBadgeCell(contact.priority),
+        _buildMethodsCell(contact.methods),
+        _buildStatusToggleCell(contact),
+        _buildContactActionsCell(contact),
       ],
     );
   }
@@ -1812,31 +1839,37 @@ class _DriverDashboardState extends State<DriverDashboard>
     );
   }
 
-  Widget _buildStatusToggleCell(int index) {
+  Widget _buildStatusToggleCell(EmergencyContact contact) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Switch(
-        value: _emergencyContacts[index]['enabled'] as bool,
-        onChanged: (value) {
-          setState(() {
-            _emergencyContacts[index]['enabled'] = value;
-          });
+        value: contact.enabled,
+        onChanged: (value) async {
+          try {
+            await _emergencyContactService.toggleContactEnabled(contact.id, value);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error updating contact: $e')),
+              );
+            }
+          }
         },
         activeColor: const Color(0xFF2196F3),
       ),
     );
   }
 
-  Widget _buildContactActionsCell(int index) {
+  Widget _buildContactActionsCell(EmergencyContact contact) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Row(
         children: [
           IconButton(
-          icon: const Icon(Icons.edit_outlined, size: 20),
-          onPressed: () {
-            _showEditContactDialog(index);
-          },
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            onPressed: () {
+              _showEditContactDialog(contact);
+            },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -1844,23 +1877,38 @@ class _DriverDashboardState extends State<DriverDashboard>
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 20),
             onPressed: () async {
-              final name = _emergencyContacts[index]['name'];
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete $name from emergency contacts?'),
+                  content: Text('Delete ${contact.name} from emergency contacts?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                    ),
                   ],
                 ),
               );
               if (confirm == true) {
-                setState(() {
-                  _emergencyContacts.removeAt(index);
-                });
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name removed')));
+                try {
+                  await _emergencyContactService.deleteEmergencyContact(contact.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${contact.name} removed')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error deleting contact: $e')),
+                    );
+                  }
+                }
               }
             },
             padding: EdgeInsets.zero,

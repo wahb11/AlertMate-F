@@ -1,16 +1,15 @@
 ﻿import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:math';
-import '../auth_screen.dart';
-import '../widgets/shared/app_sidebar.dart';
-import '../constants/app_colors.dart';
 import '../models/user.dart';
 import '../models/vehicle.dart';
+import '../models/emergency_contact.dart';
 import '../services/vehicle_service.dart';
-import '../services/firebase_auth_service.dart';
+import '../services/emergency_contact_service.dart';
+import '../constants/app_colors.dart';
+import '../widgets/shared/app_sidebar.dart';
+import '../auth_screen.dart';
 
 class OwnerDashboard extends StatefulWidget {
-  final dynamic user;
+  final User user;
 
   const OwnerDashboard({Key? key, required this.user}) : super(key: key);
 
@@ -19,26 +18,23 @@ class OwnerDashboard extends StatefulWidget {
 }
 
 class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStateMixin {
+  final VehicleService _vehicleService = VehicleService();
+  late EmergencyContactService _emergencyContactService;
+  
   int _selectedIndex = 0;
+  bool _isLoading = false;
   String _searchQuery = '';
   String _statusFilter = 'All Status';
-  
-  late VehicleService _vehicleService;
-  late List<Vehicle> _vehicles = [];
-  late bool _isLoading;
+  List<Vehicle> _vehicles = [];
+
+  // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
-
-  final List<Map<String, dynamic>> _emergencyContacts = [
-    {'name': 'Sarah Johnson', 'relationship': 'Spouse', 'phone': '+1 (555) 123-4567', 'email': 'sarah@example.com', 'priority': 'primary', 'methods': ['call', 'sms', 'email'], 'enabled': true},
-    {'name': 'Mike Chen', 'relationship': 'Fleet Manager', 'phone': '+1 (555) 987-6543', 'email': 'mike@company.com', 'priority': 'secondary', 'methods': ['sms', 'email'], 'enabled': true},
-    {'name': 'Emergency Services', 'relationship': '911', 'phone': '911', 'email': '', 'priority': 'primary', 'methods': ['call'], 'enabled': true},
-  ];
 
   @override
   void initState() {
     super.initState();
-    _vehicleService = VehicleService();
+    _emergencyContactService = EmergencyContactService();
     _isLoading = false;
     
     _fadeController = AnimationController(
@@ -63,15 +59,22 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
   }
 
   Future<void> _loadVehicles() async {
+    setState(() => _isLoading = true);
     try {
-      print('Loading vehicles for owner: ${widget.user.id}');
-      List<Vehicle> vehicles = await _vehicleService.getVehiclesForOwner(widget.user.id);
-      setState(() {
-        _vehicles = vehicles;
-      });
-      print('✅ Loaded ${vehicles.length} vehicles');
+      final vehicles = await _vehicleService.getVehiclesForOwner(widget.user.id);
+      if (mounted) {
+        setState(() {
+          _vehicles = vehicles;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      print('❌ Error loading vehicles: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading vehicles: $e')),
+        );
+      }
     }
   }
 
@@ -849,6 +852,201 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                   '130',
                   Icons.car_crash,
                   const Color(0xFF4CAF50),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildVehicleRow(Vehicle vehicle) {
+    return TableRow(
+      children: [
+        _buildTableCell(vehicle.id),
+        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
+        _buildStatusBadge(vehicle.status),
+        _buildAlertnessCell(vehicle.alertness),
+        _buildTableCell(vehicle.location ?? 'Unknown'),
+        _buildTableCell(vehicle.lastUpdate ?? 'N/A'),
+        _buildActionsCell(),
+      ],
+    );
+  }
+
+  Widget _buildTableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    switch (status) {
+      case 'Active':
+        color = AppColors.success;
+        break;
+      case 'Break':
+        color = AppColors.primary;
+        break;
+      case 'Critical':
+        color = AppColors.danger;
+        break;
+      default:
+        color = Colors.grey;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          status,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertnessCell(int alertnessValue) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Text(
+            '$alertnessValue%',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: alertnessValue / 100,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  alertnessValue >= 80 ? AppColors.success :
+                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsCell() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('View vehicle details'))
+              );
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.phone_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Calling driver...'))
+              );
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmergency() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Emergency Contacts',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Quick access to emergency services and contacts',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Police',
+                  '15',
+                  Icons.local_police,
+                  const Color(0xFF2196F3),
+                  const Color(0xFFE3F2FD),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Ambulance',
+                  '1122',
+                  Icons.local_hospital,
+                  Colors.red,
+                  const Color(0xFFFFEBEE),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Fire Department',
+                  '16',
+                  Icons.local_fire_department,
+                  const Color(0xFFFF6F00),
+                  const Color(0xFFFFF3E0),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Motorway Police',
+                  '130',
+                  Icons.car_crash,
+                  const Color(0xFF4CAF50),
                   const Color(0xFFE8F5E9),
                 )),
               ],
@@ -861,6 +1059,308 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
+  Widget _buildEmergencyContactsTable() {
+    return StreamBuilder<List<EmergencyContact>>(
+      stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Text('Error loading contacts: ${snapshot.error}'),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final contacts = snapshot.data ?? [];
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Fleet Contacts',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showAddContactDialog();
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Contact'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.5),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1.8),
+                  3: FlexColumnWidth(1.0),
+                  4: FlexColumnWidth(1.0),
+                  5: FlexColumnWidth(0.8),
+                  6: FlexColumnWidth(1.0),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    children: [
+                      _buildTableHeader('Name'),
+                      _buildTableHeader('Relationship'),
+                      _buildTableHeader('Contact'),
+                      _buildTableHeader('Priority'),
+                      _buildTableHeader('Methods'),
+                      _buildTableHeader('Status'),
+                      _buildTableHeader('Actions'),
+                    ],
+                  ),
+                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
+                ],
+              ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('View vehicle details'))
+              );
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.phone_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Calling driver...'))
+              );
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmergency() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Emergency Contacts',
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Quick access to emergency services and contacts',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Police',
+                  '15',
+                  Icons.local_police,
+                  const Color(0xFF2196F3),
+                  const Color(0xFFE3F2FD),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Ambulance',
+                  '1122',
+                  Icons.local_hospital,
+                  Colors.red,
+                  const Color(0xFFFFEBEE),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Fire Department',
+                  '16',
+                  Icons.local_fire_department,
+                  const Color(0xFFFF6F00),
+                  const Color(0xFFFFF3E0),
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildEmergencyServiceCard(
+                  'Motorway Police',
+                  '130',
+                  Icons.car_crash,
+                  const Color(0xFF4CAF50),
+                  const Color(0xFFE8F5E9),
+                )),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildEmergencyContactsTable(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmergencyContactsTable() {
+    return StreamBuilder<List<EmergencyContact>>(
+      stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Text('Error loading contacts: ${snapshot.error}'),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final contacts = snapshot.data ?? [];
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Fleet Contacts',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showAddContactDialog();
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Contact'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.5),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1.8),
+                  3: FlexColumnWidth(1.0),
+                  4: FlexColumnWidth(1.0),
+                  5: FlexColumnWidth(0.8),
+                  6: FlexColumnWidth(1.0),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    children: [
+                      _buildTableHeader('Name'),
+                      _buildTableHeader('Relationship'),
+                      _buildTableHeader('Contact'),
+                      _buildTableHeader('Priority'),
+                      _buildTableHeader('Methods'),
+                      _buildTableHeader('Status'),
+                      _buildTableHeader('Actions'),
+                    ],
+                  ),
+                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor) {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -869,62 +1369,39 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: bgColor,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 32),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
-            title,
+            number,
             style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            number,
+            title,
             style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Calling $number...'))
-                );
-              },
-              icon: const Icon(Icons.phone, size: 18),
-              label: const Text('Call Now'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -932,65 +1409,491 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildEmergencyContactsTable() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+  void _showAddContactDialog() {
+    final nameController = TextEditingController();
+    final relationshipController = TextEditingController();
+    final phoneController = TextEditingController();
+    final emailController = TextEditingController();
+    String priority = 'secondary';
+    List<String> methods = ['call'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Emergency Contact'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: relationshipController,
+                  decoration: const InputDecoration(
+                    labelText: 'Relationship *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  decoration: const InputDecoration(
+                    labelText: 'Priority',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                    DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      priority = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text('Contact Methods:', style: TextStyle(fontWeight: FontWeight.bold)),
+                CheckboxListTile(
+                  title: const Text('Phone Call'),
+                  value: methods.contains('call'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('call');
+                      } else {
+                        methods.remove('call');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('SMS'),
+                  value: methods.contains('sms'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('sms');
+                      } else {
+                        methods.remove('sms');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Email'),
+                  value: methods.contains('email'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('email');
+                      } else {
+                        methods.remove('email');
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty || 
+                    relationshipController.text.isEmpty || 
+                    phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in all required fields')),
+                  );
+                  return;
+                }
+                
+                try {
+                  await _emergencyContactService.addEmergencyContact(
+                    userId: widget.user.id,
+                    userRole: 'owner',
+                    contactData: {
+                      'name': nameController.text,
+                      'relationship': relationshipController.text,
+                      'phone': phoneController.text,
+                      'email': emailController.text,
+                      'priority': priority,
+                      'methods': methods,
+                      'enabled': true,
+                    },
+                  );
+                  
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${nameController.text} added to emergency contacts')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error adding contact: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Add Contact'),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showEditContactDialog(EmergencyContact contact) {
+    final nameController = TextEditingController(text: contact.name);
+    final relationshipController = TextEditingController(text: contact.relationship);
+    final phoneController = TextEditingController(text: contact.phone);
+    final emailController = TextEditingController(text: contact.email);
+    String priority = contact.priority;
+    List<String> methods = List<String>.from(contact.methods);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Emergency Contact'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: relationshipController,
+                  decoration: const InputDecoration(
+                    labelText: 'Relationship *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number *',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Email (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  decoration: const InputDecoration(
+                    labelText: 'Priority',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                    DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() {
+                      priority = value!;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text('Contact Methods:', style: TextStyle(fontWeight: FontWeight.bold)),
+                CheckboxListTile(
+                  title: const Text('Phone Call'),
+                  value: methods.contains('call'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('call');
+                      } else {
+                        methods.remove('call');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('SMS'),
+                  value: methods.contains('sms'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('sms');
+                      } else {
+                        methods.remove('sms');
+                      }
+                    });
+                  },
+                ),
+                CheckboxListTile(
+                  title: const Text('Email'),
+                  value: methods.contains('email'),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        methods.add('email');
+                      } else {
+                        methods.remove('email');
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty || 
+                    relationshipController.text.isEmpty || 
+                    phoneController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in all required fields')),
+                  );
+                  return;
+                }
+                
+                try {
+                  await _emergencyContactService.updateEmergencyContact(
+                    contactId: contact.id,
+                    contactData: {
+                      'name': nameController.text,
+                      'relationship': relationshipController.text,
+                      'phone': phoneController.text,
+                      'email': emailController.text,
+                      'priority': priority,
+                      'methods': methods,
+                      'enabled': contact.enabled,
+                    },
+                  );
+                  
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${nameController.text} updated successfully')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating contact: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildEmergencyContactRow(EmergencyContact contact) {
+    return TableRow(
+      children: [
+        _buildTableCell(contact.name),
+        _buildTableCell(contact.relationship),
+        _buildContactInfoCell(contact.phone, contact.email),
+        _buildPriorityBadgeCell(contact.priority),
+        _buildMethodsCell(contact.methods),
+        _buildStatusToggleCell(contact),
+        _buildContactActionsCell(contact),
+      ],
+    );
+  }
+
+  Widget _buildContactInfoCell(String phone, String email) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Fleet Contacts',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          Text(
+            phone,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 24),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(2),
-              1: FlexColumnWidth(1.5),
-              2: FlexColumnWidth(2),
-              3: FlexColumnWidth(1),
-            },
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                children: [
-                  _buildTableHeader('Name'),
-                  _buildTableHeader('Role'),
-                  _buildTableHeader('Phone'),
-                  _buildTableHeader('Actions'),
-                ],
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              email,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
               ),
-              ..._emergencyContacts.map((contact) => TableRow(
-                children: [
-                  _buildTableCell(contact['name']),
-                  _buildTableCell(contact['relationship']),
-                  _buildTableCell(contact['phone']),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: IconButton(
-                      icon: const Icon(Icons.call, color: AppColors.primary),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Calling ${contact['name']}...'))
-                        );
-                      },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriorityBadgeCell(String priority) {
+    final isPrimary = priority == 'primary';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isPrimary ? Colors.red : const Color(0xFFFF6F00),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          priority,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMethodsCell(List<dynamic> methods) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          if (methods.contains('call'))
+            Icon(Icons.phone, size: 18, color: Colors.green[600]),
+          if (methods.contains('call')) const SizedBox(width: 6),
+          if (methods.contains('sms'))
+            Icon(Icons.message, size: 18, color: Colors.blue[600]),
+          if (methods.contains('sms')) const SizedBox(width: 6),
+          if (methods.contains('email'))
+            Icon(Icons.email, size: 18, color: Colors.grey[600]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusToggleCell(EmergencyContact contact) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Switch(
+        value: contact.enabled,
+        onChanged: (value) async {
+          try {
+            await _emergencyContactService.toggleContactEnabled(contact.id, value);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error updating contact: $e')),
+              );
+            }
+          }
+        },
+        activeColor: const Color(0xFF2196F3),
+      ),
+    );
+  }
+
+  Widget _buildContactActionsCell(EmergencyContact contact) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 20),
+            onPressed: () {
+              _showEditContactDialog(contact);
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Delete Contact'),
+                  content: Text('Delete ${contact.name} from emergency contacts?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
                     ),
-                  ),
-                ],
-              )).toList(),
-            ],
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                try {
+                  await _emergencyContactService.deleteEmergencyContact(contact.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${contact.name} removed')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error deleting contact: $e')),
+                    );
+                  }
+                }
+              }
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),

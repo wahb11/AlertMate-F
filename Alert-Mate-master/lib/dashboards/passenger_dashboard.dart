@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math';
 import '../models/user.dart';
+import '../models/emergency_contact.dart';
 import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
+import '../services/emergency_contact_service.dart';
 
 class PassengerDashboard extends StatefulWidget {
   final User user;
@@ -20,11 +22,8 @@ class _PassengerDashboardState extends State<PassengerDashboard>
   int _selectedIndex = 0;
   int _selectedTab = 0;
   final Random _random = Random();
-  final List<Map<String, dynamic>> _emergencyContacts = [
-    {'name': 'Sarah Johnson', 'relationship': 'Spouse', 'phone': '+1 (555) 123-4567', 'email': 'sarah@example.com', 'priority': 'primary', 'methods': ['call', 'sms', 'email'], 'enabled': true},
-    {'name': 'Mike Chen', 'relationship': 'Fleet Manager', 'phone': '+1 (555) 987-6543', 'email': 'mike@company.com', 'priority': 'secondary', 'methods': ['sms', 'email'], 'enabled': true},
-    {'name': 'Emergency Services', 'relationship': '911', 'phone': '911', 'email': '', 'priority': 'primary', 'methods': ['call'], 'enabled': true},
-  ];
+  late EmergencyContactService _emergencyContactService;
+
   
   // Animation controllers
   late AnimationController _fadeController;
@@ -46,6 +45,7 @@ class _PassengerDashboardState extends State<PassengerDashboard>
   @override
   void initState() {
     super.initState();
+    _emergencyContactService = EmergencyContactService();
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -1433,120 +1433,155 @@ class _PassengerDashboardState extends State<PassengerDashboard>
   }
 
   Widget _buildEmergencyContactsTable() {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+    return StreamBuilder<List<EmergencyContact>>(
+      stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text('Error loading contacts: ${snapshot.error}'),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final contacts = snapshot.data ?? [];
+
+        return Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Emergency Contacts',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Emergency Contacts',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Manage your emergency contact list',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _showContactDialog(context: context);
+                    },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add Contact'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2196F3),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.5),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1.8),
+                  3: FlexColumnWidth(1.0),
+                  4: FlexColumnWidth(1.0),
+                  5: FlexColumnWidth(0.8),
+                  6: FlexColumnWidth(1.0),
+                },
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    children: [
+                      _buildTableHeader('Name'),
+                      _buildTableHeader('Relationship'),
+                      _buildTableHeader('Contact'),
+                      _buildTableHeader('Priority'),
+                      _buildTableHeader('Methods'),
+                      _buildTableHeader('Status'),
+                      _buildTableHeader('Actions'),
+                    ],
+                  ),
+                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
                   Text(
-                    'Manage your emergency contact list',
+                    'Last system test: Just now • ${contacts.length} active contacts',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       color: Colors.grey[600],
                     ),
                   ),
                 ],
               ),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final newContact = await _showContactDialog(context: context);
-                  if (newContact != null) {
-                    setState(() {
-                      _emergencyContacts.add(newContact);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact added')));
-                  }
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Contact'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 24),
-          Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1.5),
-              1: FlexColumnWidth(1.2),
-              2: FlexColumnWidth(1.8),
-              3: FlexColumnWidth(1.0),
-              4: FlexColumnWidth(1.0),
-              5: FlexColumnWidth(0.8),
-              6: FlexColumnWidth(1.0),
-            },
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                children: [
-                  _buildTableHeader('Name'),
-                  _buildTableHeader('Relationship'),
-                  _buildTableHeader('Contact'),
-                  _buildTableHeader('Priority'),
-                  _buildTableHeader('Methods'),
-                  _buildTableHeader('Status'),
-                  _buildTableHeader('Actions'),
-                ],
-              ),
-              ...List.generate(_emergencyContacts.length, (i) => _buildEmergencyContactRow(i, _emergencyContacts[i])),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-              const SizedBox(width: 8),
-              Text(
-                'Last system test: Just now • ${_emergencyContacts.length} active contacts',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
-
-  
 
   Widget _buildTableHeader(String text) {
     return Padding(
@@ -1627,16 +1662,16 @@ class _PassengerDashboardState extends State<PassengerDashboard>
     );
   }
 
-  TableRow _buildEmergencyContactRow(int index, Map<String, dynamic> contact) {
+  TableRow _buildEmergencyContactRow(EmergencyContact contact) {
     return TableRow(
       children: [
-        _buildTableCell(contact['name']),
-        _buildTableCell(contact['relationship']),
-        _buildContactInfoCell(contact['phone'], contact['email']),
-        _buildPriorityBadgeCell(contact['priority']),
-        _buildMethodsCell(contact['methods']),
-        _buildStatusToggleCell(index),
-        _buildContactActionsCell(index),
+        _buildTableCell(contact.name),
+        _buildTableCell(contact.relationship),
+        _buildContactInfoCell(contact.phone, contact.email),
+        _buildPriorityBadgeCell(contact.priority),
+        _buildMethodsCell(contact.methods),
+        _buildStatusToggleCell(contact),
+        _buildContactActionsCell(contact),
       ],
     );
   }
@@ -1659,36 +1694,36 @@ class _PassengerDashboardState extends State<PassengerDashboard>
     );
   }
 
-  Widget _buildStatusToggleCell(int index) {
+  Widget _buildStatusToggleCell(EmergencyContact contact) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Switch(
-        value: _emergencyContacts[index]['enabled'] as bool,
-        onChanged: (value) {
-          setState(() {
-            _emergencyContacts[index]['enabled'] = value;
-          });
+        value: contact.enabled,
+        onChanged: (value) async {
+          try {
+            await _emergencyContactService.toggleContactEnabled(contact.id, value);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error: $e')),
+              );
+            }
+          }
         },
         activeColor: const Color(0xFF2196F3),
       ),
     );
   }
 
-  Widget _buildContactActionsCell(int index) {
+  Widget _buildContactActionsCell(EmergencyContact contact) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Row(
         children: [
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 20),
-            onPressed: () async {
-              final updated = await _showContactDialog(context: context, contact: _emergencyContacts[index]);
-              if (updated != null) {
-                setState(() {
-                  _emergencyContacts[index] = updated;
-                });
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact updated')));
-              }
+            onPressed: () {
+              _showContactDialog(context: context, contact: contact);
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -1697,12 +1732,11 @@ class _PassengerDashboardState extends State<PassengerDashboard>
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 20),
             onPressed: () async {
-              final name = _emergencyContacts[index]['name'];
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete $name from emergency contacts?'),
+                  content: Text('Delete ${contact.name} from emergency contacts?'),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
                     ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
@@ -1710,10 +1744,20 @@ class _PassengerDashboardState extends State<PassengerDashboard>
                 ),
               );
               if (confirm == true) {
-                setState(() {
-                  _emergencyContacts.removeAt(index);
-                });
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name removed')));
+                try {
+                  await _emergencyContactService.deleteEmergencyContact(contact.id);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${contact.name} removed')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
               }
             },
             padding: EdgeInsets.zero,
@@ -1755,156 +1799,197 @@ class _PassengerDashboardState extends State<PassengerDashboard>
     );
   }
 
-  Future<Map<String, dynamic>?> _showContactDialog({required BuildContext context, Map<String, dynamic>? contact}) async {
+  Future<void> _showContactDialog({required BuildContext context, EmergencyContact? contact}) async {
     final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: contact?['name'] ?? '');
-    final relationshipController = TextEditingController(text: contact?['relationship'] ?? '');
-    final phoneController = TextEditingController(text: contact?['phone'] ?? '');
-    final emailController = TextEditingController(text: contact?['email'] ?? '');
-    String priority = contact?['priority'] ?? 'primary';
-    final methods = Set<String>.from(contact?['methods'] ?? <String>{});
-    bool enabled = contact?['enabled'] ?? true;
+    final nameController = TextEditingController(text: contact?.name ?? '');
+    final relationshipController = TextEditingController(text: contact?.relationship ?? '');
+    final phoneController = TextEditingController(text: contact?.phone ?? '');
+    final emailController = TextEditingController(text: contact?.email ?? '');
+    String priority = contact?.priority ?? 'primary';
+    final methods = Set<String>.from(contact?.methods ?? <String>{'call'});
+    bool enabled = contact?.enabled ?? true;
 
-    final result = await showDialog<Map<String, dynamic>>(
+    await showDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(contact == null ? 'Add Contact' : 'Edit Contact'),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: relationshipController,
-                    decoration: const InputDecoration(labelText: 'Relationship'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(labelText: 'Phone'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      const Text('Priority:'),
-                      const SizedBox(width: 12),
-                      DropdownButton<String>(
-                        value: priority,
-                        items: const [
-                          DropdownMenuItem(value: 'primary', child: Text('Primary')),
-                          DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            priority = val;
-                            (ctx as Element).markNeedsBuild();
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 12,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: Text(contact == null ? 'Add Contact' : 'Edit Contact'),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    TextFormField(
+                      controller: relationshipController,
+                      decoration: const InputDecoration(labelText: 'Relationship'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    TextFormField(
+                      controller: phoneController,
+                      decoration: const InputDecoration(labelText: 'Phone'),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    ),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email (optional)'),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
                       children: [
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          Checkbox(
-                            value: methods.contains('call'),
-                            onChanged: (val) {
-                              if (val == true) { methods.add('call'); } else { methods.remove('call'); }
-                              (ctx as Element).markNeedsBuild();
-                            },
-                          ),
-                          const Text('Call'),
-                        ]),
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          Checkbox(
-                            value: methods.contains('sms'),
-                            onChanged: (val) {
-                              if (val == true) { methods.add('sms'); } else { methods.remove('sms'); }
-                              (ctx as Element).markNeedsBuild();
-                            },
-                          ),
-                          const Text('SMS'),
-                        ]),
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          Checkbox(
-                            value: methods.contains('email'),
-                            onChanged: (val) {
-                              if (val == true) { methods.add('email'); } else { methods.remove('email'); }
-                              (ctx as Element).markNeedsBuild();
-                            },
-                          ),
-                          const Text('Email'),
-                        ]),
+                        const Text('Priority:'),
+                        const SizedBox(width: 12),
+                        DropdownButton<String>(
+                          value: priority,
+                          items: const [
+                            DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                            DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setDialogState(() => priority = val);
+                            }
+                          },
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Enabled'),
-                      const SizedBox(width: 12),
-                      Switch(
-                        value: enabled,
-                        onChanged: (val) {
-                          enabled = val;
-                          (ctx as Element).markNeedsBuild();
-                        },
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Checkbox(
+                              value: methods.contains('call'),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  if (val == true) { methods.add('call'); } else { methods.remove('call'); }
+                                });
+                              },
+                            ),
+                            const Text('Call'),
+                          ]),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Checkbox(
+                              value: methods.contains('sms'),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  if (val == true) { methods.add('sms'); } else { methods.remove('sms'); }
+                                });
+                              },
+                            ),
+                            const Text('SMS'),
+                          ]),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Checkbox(
+                              value: methods.contains('email'),
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  if (val == true) { methods.add('email'); } else { methods.remove('email'); }
+                                });
+                              },
+                            ),
+                            const Text('Email'),
+                          ]),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Enabled'),
+                        const SizedBox(width: 12),
+                        Switch(
+                          value: enabled,
+                          onChanged: (val) {
+                            setDialogState(() => enabled = val);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() != true) return;
-                if (methods.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Select at least one method')),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx, {
-                  'name': nameController.text.trim(),
-                  'relationship': relationshipController.text.trim(),
-                  'phone': phoneController.text.trim(),
-                  'email': emailController.text.trim(),
-                  'priority': priority,
-                  'methods': methods.toList(),
-                  'enabled': enabled,
-                });
-              },
-              child: Text(contact == null ? 'Add' : 'Save'),
-            ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (formKey.currentState?.validate() != true) return;
+                  if (methods.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Select at least one method')),
+                    );
+                    return;
+                  }
+                  
+                  Navigator.pop(ctx);
+                  
+                  try {
+                    if (contact == null) {
+                      await _emergencyContactService.addEmergencyContact(
+                        userId: widget.user.id,
+                        userRole: 'passenger',
+                        contactData: {
+                          'name': nameController.text.trim(),
+                          'relationship': relationshipController.text.trim(),
+                          'phone': phoneController.text.trim(),
+                          'email': emailController.text.trim(),
+                          'priority': priority,
+                          'methods': methods.toList(),
+                          'enabled': enabled,
+                        },
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Contact added')),
+                        );
+                      }
+                    } else {
+                      await _emergencyContactService.updateEmergencyContact(
+                        contactId: contact.id,
+                        contactData: {
+                          'name': nameController.text.trim(),
+                          'relationship': relationshipController.text.trim(),
+                          'phone': phoneController.text.trim(),
+                          'email': emailController.text.trim(),
+                          'priority': priority,
+                          'methods': methods.toList(),
+                          'enabled': enabled,
+                        },
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Contact updated')),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  }
+                },
+                child: Text(contact == null ? 'Add' : 'Save'),
+              ),
+            ],
+          );
+        }
+      ),
     );
-
-    return result;
   }
 }
 
