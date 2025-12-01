@@ -202,15 +202,26 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             ),
             const SizedBox(height: 32),
 
-            Row(
+            Wrap(
+              spacing: 20,
+              runSpacing: 20,
               children: [
-                Expanded(child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight)),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight)),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight)),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight)),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight),
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -390,34 +401,40 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                 ],
               ),
               const SizedBox(height: 24),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1.5),
-                  1: FlexColumnWidth(1.2),
-                  2: FlexColumnWidth(1.8),
-                  3: FlexColumnWidth(1.0),
-                  4: FlexColumnWidth(1.0),
-                  5: FlexColumnWidth(0.8),
-                  6: FlexColumnWidth(1.0),
-                },
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 800),
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.5),
+                      1: FlexColumnWidth(1.2),
+                      2: FlexColumnWidth(1.8),
+                      3: FlexColumnWidth(1.0),
+                      4: FlexColumnWidth(1.0),
+                      5: FlexColumnWidth(0.8),
+                      6: FlexColumnWidth(1.0),
+                    },
                     children: [
-                      _buildTableHeader('Name'),
-                      _buildTableHeader('Relationship'),
-                      _buildTableHeader('Contact'),
-                      _buildTableHeader('Priority'),
-                      _buildTableHeader('Methods'),
-                      _buildTableHeader('Status'),
-                      _buildTableHeader('Actions'),
+                      TableRow(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        children: [
+                          _buildTableHeader('Name'),
+                          _buildTableHeader('Relationship'),
+                          _buildTableHeader('Contact'),
+                          _buildTableHeader('Priority'),
+                          _buildTableHeader('Methods'),
+                          _buildTableHeader('Status'),
+                          _buildTableHeader('Actions'),
+                        ],
+                      ),
+                      ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
                     ],
                   ),
-                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -1072,78 +1089,166 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User Management',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Manage user accounts and permissions',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add user dialog')));
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add User'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return constraints.maxWidth < 600
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'User Management',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Manage user accounts and permissions',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add user dialog')));
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add User'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6366F1),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'User Management',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Manage user accounts and permissions',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add user dialog')));
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add User'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6366F1),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ],
+                        );
+                },
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search users...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey[300]!),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  DropdownButton<String>(
-                    value: _selectedRoleFilter,
-                    items: ['All Roles', 'Admin', 'Driver', 'Passenger', 'Owner']
-                        .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                        .toList(),
-                    onChanged: (value) => setState(() => _selectedRoleFilter = value!),
-                    underline: Container(),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return constraints.maxWidth < 600
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextField(
+                              decoration: InputDecoration(
+                                hintText: 'Search users...',
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            DropdownButtonFormField<String>(
+                              value: _selectedRoleFilter,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                              items: ['All Roles', 'Admin', 'Driver', 'Passenger', 'Owner']
+                                  .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                                  .toList(),
+                              onChanged: (value) => setState(() => _selectedRoleFilter = value!),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'Search users...',
+                                  prefixIcon: const Icon(Icons.search, size: 20),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            DropdownButton<String>(
+                              value: _selectedRoleFilter,
+                              items: ['All Roles', 'Admin', 'Driver', 'Passenger', 'Owner']
+                                  .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                                  .toList(),
+                              onChanged: (value) => setState(() => _selectedRoleFilter = value!),
+                              underline: Container(),
+                            ),
+                          ],
+                        );
+                },
               ),
               const SizedBox(height: 24),
               _buildUserTable(),
@@ -1151,12 +1256,24 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
           ),
         ),
         const SizedBox(height: 24),
-        Row(
-          children: [
-            Expanded(child: _buildUserRoleDistribution()),
-            const SizedBox(width: 24),
-            Expanded(child: _buildRecentUserActivity()),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return constraints.maxWidth < 900
+                ? Column(
+                    children: [
+                      _buildUserRoleDistribution(),
+                      const SizedBox(height: 24),
+                      _buildRecentUserActivity(),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(child: _buildUserRoleDistribution()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildRecentUserActivity()),
+                    ],
+                  );
+          },
         ),
       ],
     );
@@ -1171,43 +1288,49 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
       {'name': 'David Brown', 'email': 'david@example.com', 'role': 'admin', 'status': 'Active', 'lastLogin': '5 min ago'},
     ];
 
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(2),
-        1: FlexColumnWidth(2.5),
-        2: FlexColumnWidth(1.5),
-        3: FlexColumnWidth(1.5),
-        4: FlexColumnWidth(2),
-        5: FlexColumnWidth(1),
-      },
-      children: [
-        TableRow(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
-          ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 800),
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2),
+            1: FlexColumnWidth(2.5),
+            2: FlexColumnWidth(1.5),
+            3: FlexColumnWidth(1.5),
+            4: FlexColumnWidth(2),
+            5: FlexColumnWidth(1),
+          },
           children: [
-            _buildTableHeader('Name'),
-            _buildTableHeader('Email'),
-            _buildTableHeader('Role'),
-            _buildTableHeader('Status'),
-            _buildTableHeader('Last Login'),
-            _buildTableHeader('Actions'),
+            TableRow(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+              ),
+              children: [
+                _buildTableHeader('Name'),
+                _buildTableHeader('Email'),
+                _buildTableHeader('Role'),
+                _buildTableHeader('Status'),
+                _buildTableHeader('Last Login'),
+                _buildTableHeader('Actions'),
+              ],
+            ),
+            ...users.map((user) => TableRow(
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
+              ),
+              children: [
+                _buildTableCell(user['name']!),
+                _buildTableCell(user['email']!),
+                _buildRoleBadge(user['role']!),
+                _buildStatusBadge(user['status']!),
+                _buildTableCell(user['lastLogin']!),
+                _buildActionButtons(),
+              ],
+            )),
           ],
         ),
-        ...users.map((user) => TableRow(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey[100]!)),
-          ),
-          children: [
-            _buildTableCell(user['name']!),
-            _buildTableCell(user['email']!),
-            _buildRoleBadge(user['role']!),
-            _buildStatusBadge(user['status']!),
-            _buildTableCell(user['lastLogin']!),
-            _buildActionButtons(),
-          ],
-        )),
-      ],
+      ),
     );
   }
 
@@ -1454,13 +1577,25 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   Widget _buildFleetOverview() {
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildGlobalFleetStatus()),
-            const SizedBox(width: 24),
-            Expanded(child: _buildLiveFleetMap()),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return constraints.maxWidth < 900
+                ? Column(
+                    children: [
+                      _buildGlobalFleetStatus(),
+                      const SizedBox(height: 24),
+                      _buildLiveFleetMap(),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildGlobalFleetStatus()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildLiveFleetMap()),
+                    ],
+                  );
+          },
         ),
         const SizedBox(height: 24),
         _buildFleetPerformanceMetrics(),
@@ -1620,16 +1755,32 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _buildMetricCard('104', 'Total Vehicles', Icons.directions_car_outlined, const Color(0xFF2196F3))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMetricCard('87.3%', 'Avg Alertness', Icons.show_chart, const Color(0xFF4CAF50))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMetricCard('23', 'Incidents Today', Icons.warning_amber_outlined, const Color(0xFFFF9800))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMetricCard('94.2%', 'Uptime', Icons.trending_up, const Color(0xFF9C27B0))),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return constraints.maxWidth < 800
+                  ? Column(
+                      children: [
+                        _buildMetricCard('104', 'Total Vehicles', Icons.directions_car_outlined, const Color(0xFF2196F3)),
+                        const SizedBox(height: 16),
+                        _buildMetricCard('87.3%', 'Avg Alertness', Icons.show_chart, const Color(0xFF4CAF50)),
+                        const SizedBox(height: 16),
+                        _buildMetricCard('23', 'Incidents Today', Icons.warning_amber_outlined, const Color(0xFFFF9800)),
+                        const SizedBox(height: 16),
+                        _buildMetricCard('94.2%', 'Uptime', Icons.trending_up, const Color(0xFF9C27B0)),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: _buildMetricCard('104', 'Total Vehicles', Icons.directions_car_outlined, const Color(0xFF2196F3))),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMetricCard('87.3%', 'Avg Alertness', Icons.show_chart, const Color(0xFF4CAF50))),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMetricCard('23', 'Incidents Today', Icons.warning_amber_outlined, const Color(0xFFFF9800))),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMetricCard('94.2%', 'Uptime', Icons.trending_up, const Color(0xFF9C27B0))),
+                      ],
+                    );
+            },
           ),
         ],
       ),
@@ -1672,13 +1823,25 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   Widget _buildSystemSettings() {
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildSystemConfiguration()),
-            const SizedBox(width: 24),
-            Expanded(child: _buildAlertThresholds()),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return constraints.maxWidth < 900
+                ? Column(
+                    children: [
+                      _buildSystemConfiguration(),
+                      const SizedBox(height: 24),
+                      _buildAlertThresholds(),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildSystemConfiguration()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildAlertThresholds()),
+                    ],
+                  );
+          },
         ),
         const SizedBox(height: 24),
         _buildSystemMaintenance(),
@@ -1849,16 +2012,32 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _buildMaintenanceButton('Database Backup', Icons.storage_outlined, '2 hours ago')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMaintenanceButton('System Health Check', Icons.favorite_border, 'All systems OK')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMaintenanceButton('Performance Monitor', Icons.show_chart, 'View metrics')),
-              const SizedBox(width: 16),
-              Expanded(child: _buildMaintenanceButton('Export Logs', Icons.download, 'Download')),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return constraints.maxWidth < 800
+                  ? Column(
+                      children: [
+                        _buildMaintenanceButton('Database Backup', Icons.storage_outlined, '2 hours ago'),
+                        const SizedBox(height: 16),
+                        _buildMaintenanceButton('System Health Check', Icons.favorite_border, 'All systems OK'),
+                        const SizedBox(height: 16),
+                        _buildMaintenanceButton('Performance Monitor', Icons.show_chart, 'View metrics'),
+                        const SizedBox(height: 16),
+                        _buildMaintenanceButton('Export Logs', Icons.download, 'Download'),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: _buildMaintenanceButton('Database Backup', Icons.storage_outlined, '2 hours ago')),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMaintenanceButton('System Health Check', Icons.favorite_border, 'All systems OK')),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMaintenanceButton('Performance Monitor', Icons.show_chart, 'View metrics')),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildMaintenanceButton('Export Logs', Icons.download, 'Download')),
+                      ],
+                    );
+            },
           ),
         ],
       ),
@@ -1903,13 +2082,25 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   Widget _buildAnalytics() {
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildPlatformUsageTrends()),
-            const SizedBox(width: 24),
-            Expanded(child: _buildSystemPerformance()),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return constraints.maxWidth < 900
+                ? Column(
+                    children: [
+                      _buildPlatformUsageTrends(),
+                      const SizedBox(height: 24),
+                      _buildSystemPerformance(),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildPlatformUsageTrends()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildSystemPerformance()),
+                    ],
+                  );
+          },
         ),
         const SizedBox(height: 24),
         _buildGlobalStatistics(),
@@ -2035,24 +2226,40 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatisticCard('1247', 'Total Users', '+12%', const Color(0xFF4CAF50)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatisticCard('89', 'Active Vehicles', '+5%', const Color(0xFF4CAF50)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatisticCard('99.9%', 'System Uptime', '0%', Colors.black54),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatisticCard('2.4TB', 'Data Storage', '+8%', const Color(0xFF2196F3)),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return constraints.maxWidth < 800
+                  ? Column(
+                      children: [
+                        _buildStatisticCard('1247', 'Total Users', '+12%', const Color(0xFF4CAF50)),
+                        const SizedBox(height: 16),
+                        _buildStatisticCard('89', 'Active Vehicles', '+5%', const Color(0xFF4CAF50)),
+                        const SizedBox(height: 16),
+                        _buildStatisticCard('99.9%', 'System Uptime', '0%', Colors.black54),
+                        const SizedBox(height: 16),
+                        _buildStatisticCard('2.4TB', 'Data Storage', '+8%', const Color(0xFF2196F3)),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatisticCard('1247', 'Total Users', '+12%', const Color(0xFF4CAF50)),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatisticCard('89', 'Active Vehicles', '+5%', const Color(0xFF4CAF50)),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatisticCard('99.9%', 'System Uptime', '0%', Colors.black54),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatisticCard('2.4TB', 'Data Storage', '+8%', const Color(0xFF2196F3)),
+                        ),
+                      ],
+                    );
+            },
           ),
         ],
       ),
@@ -2102,13 +2309,25 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   Widget _buildSecurity() {
     return Column(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildSecuritySettings()),
-            const SizedBox(width: 24),
-            Expanded(child: _buildSecurityMonitoring()),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return constraints.maxWidth < 900
+                ? Column(
+                    children: [
+                      _buildSecuritySettings(),
+                      const SizedBox(height: 24),
+                      _buildSecurityMonitoring(),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildSecuritySettings()),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildSecurityMonitoring()),
+                    ],
+                  );
+          },
         ),
         const SizedBox(height: 24),
         _buildSystemBackupRecovery(),
@@ -2325,14 +2544,28 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: _buildBackupCard('Last Backup', '2 hours ago', Icons.storage_outlined, 'Create Backup', const Color(0xFF2196F3))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildBackupCard('Backup Size', '2.4 TB', Icons.folder_outlined, 'View Details', const Color(0xFF4CAF50))),
-              const SizedBox(width: 16),
-              Expanded(child: _buildBackupCard('Recovery Time', '< 15 minutes', Icons.shield_outlined, 'Test Recovery', const Color(0xFF9C27B0))),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return constraints.maxWidth < 800
+                  ? Column(
+                      children: [
+                        _buildBackupCard('Last Backup', '2 hours ago', Icons.storage_outlined, 'Create Backup', const Color(0xFF2196F3)),
+                        const SizedBox(height: 16),
+                        _buildBackupCard('Backup Size', '2.4 TB', Icons.folder_outlined, 'View Details', const Color(0xFF4CAF50)),
+                        const SizedBox(height: 16),
+                        _buildBackupCard('Recovery Time', '< 15 minutes', Icons.shield_outlined, 'Test Recovery', const Color(0xFF9C27B0)),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: _buildBackupCard('Last Backup', '2 hours ago', Icons.storage_outlined, 'Create Backup', const Color(0xFF2196F3))),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildBackupCard('Backup Size', '2.4 TB', Icons.folder_outlined, 'View Details', const Color(0xFF4CAF50))),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildBackupCard('Recovery Time', '< 15 minutes', Icons.shield_outlined, 'Test Recovery', const Color(0xFF9C27B0))),
+                      ],
+                    );
+            },
           ),
         ],
       ),

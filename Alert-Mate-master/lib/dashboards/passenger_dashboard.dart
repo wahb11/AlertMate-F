@@ -583,13 +583,25 @@ class _PassengerDashboardState extends State<PassengerDashboard>
   }
 
   Widget _buildLiveStatusTab() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _buildDriverAlertnessTrend()),
-        const SizedBox(width: 20),
-        Expanded(child: _buildTripInformation()),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return constraints.maxWidth < 900
+            ? Column(
+                children: [
+                  _buildDriverAlertnessTrend(),
+                  const SizedBox(height: 20),
+                  _buildTripInformation(),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildDriverAlertnessTrend()),
+                  const SizedBox(width: 20),
+                  Expanded(child: _buildTripInformation()),
+                ],
+              );
+      },
     );
   }
 
@@ -1317,39 +1329,50 @@ class _PassengerDashboardState extends State<PassengerDashboard>
             const SizedBox(height: 32),
 
             // Emergency Services Grid
-            Row(
+            Wrap(
+              spacing: 20,
+              runSpacing: 20,
               children: [
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Police',
-                  '15',
-                  Icons.local_police,
-                  const Color(0xFF2196F3),
-                  const Color(0xFFE3F2FD),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Ambulance',
-                  '1122',
-                  Icons.local_hospital,
-                  Colors.red,
-                  const Color(0xFFFFEBEE),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Fire Department',
-                  '16',
-                  Icons.local_fire_department,
-                  const Color(0xFFFF6F00),
-                  const Color(0xFFFFF3E0),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Motorway Police',
-                  '130',
-                  Icons.car_crash,
-                  const Color(0xFF4CAF50),
-                  const Color(0xFFE8F5E9),
-                )),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Police',
+                    '15',
+                    Icons.local_police,
+                    const Color(0xFF2196F3),
+                    const Color(0xFFE3F2FD),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Ambulance',
+                    '1122',
+                    Icons.local_hospital,
+                    Colors.red,
+                    const Color(0xFFFFEBEE),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Fire Department',
+                    '16',
+                    Icons.local_fire_department,
+                    const Color(0xFFFF6F00),
+                    const Color(0xFFFFF3E0),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Motorway Police',
+                    '130',
+                    Icons.car_crash,
+                    const Color(0xFF4CAF50),
+                    const Color(0xFFE8F5E9),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 32),
@@ -1533,34 +1556,40 @@ class _PassengerDashboardState extends State<PassengerDashboard>
                 ],
               ),
               const SizedBox(height: 24),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1.5),
-                  1: FlexColumnWidth(1.2),
-                  2: FlexColumnWidth(1.8),
-                  3: FlexColumnWidth(1.0),
-                  4: FlexColumnWidth(1.0),
-                  5: FlexColumnWidth(0.8),
-                  6: FlexColumnWidth(1.0),
-                },
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 800),
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.5),
+                      1: FlexColumnWidth(1.2),
+                      2: FlexColumnWidth(1.8),
+                      3: FlexColumnWidth(1.0),
+                      4: FlexColumnWidth(1.0),
+                      5: FlexColumnWidth(0.8),
+                      6: FlexColumnWidth(1.0),
+                    },
                     children: [
-                      _buildTableHeader('Name'),
-                      _buildTableHeader('Relationship'),
-                      _buildTableHeader('Contact'),
-                      _buildTableHeader('Priority'),
-                      _buildTableHeader('Methods'),
-                      _buildTableHeader('Status'),
-                      _buildTableHeader('Actions'),
+                      TableRow(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        children: [
+                          _buildTableHeader('Name'),
+                          _buildTableHeader('Relationship'),
+                          _buildTableHeader('Contact'),
+                          _buildTableHeader('Priority'),
+                          _buildTableHeader('Methods'),
+                          _buildTableHeader('Status'),
+                          _buildTableHeader('Actions'),
+                        ],
+                      ),
+                      ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
                     ],
                   ),
-                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
               Row(

@@ -535,37 +535,196 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     );
   }
 
- Widget _buildFleetOverview() {
-  return StreamBuilder<List<Vehicle>>(
-    stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator());
-      }
+Widget _buildFleetOverview() {
+    return StreamBuilder<List<Vehicle>>(
+      stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-      final vehicles = snapshot.data ?? [];
+        final vehicles = snapshot.data ?? [];
 
-      // --- FILTERING ---
-      List<Vehicle> filteredVehicles = vehicles.where((vehicle) {
-        bool matchesSearch = _searchQuery.isEmpty ||
-            (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-            vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
+        // --- FILTERING ---
+        List<Vehicle> filteredVehicles = vehicles.where((vehicle) {
+          bool matchesSearch = _searchQuery.isEmpty ||
+              (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
+              vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
 
-        bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
+          bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
 
-        return matchesSearch && matchesFilter;
-      }).toList();
+          return matchesSearch && matchesFilter;
+        }).toList();
 
-      return Container(
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        return Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Fleet Overview',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 250,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Search vehicles...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onChanged: (value) => setState(() => _searchQuery = value),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      DropdownButton<String>(
+                        value: _statusFilter,
+                        items: const [
+                          DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+                          DropdownMenuItem(value: 'Active', child: Text('Active')),
+                          DropdownMenuItem(value: 'Break', child: Text('Break')),
+                          DropdownMenuItem(value: 'Critical', child: Text('Critical')),
+                        ],
+                        onChanged: (value) => setState(() => _statusFilter = value!),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              if (filteredVehicles.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Text('No vehicles found'),
+                  ),
+                )
+              else
+                Table(
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.2),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.0),
+                    3: FlexColumnWidth(1.5),
+                    4: FlexColumnWidth(1.5),
+                    5: FlexColumnWidth(1.2),
+                    6: FlexColumnWidth(1.0),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      children: [
+                        _buildTableHeader('Vehicle ID'),
+                        _buildTableHeader('Driver'),
+                        _buildTableHeader('Status'),
+                        _buildTableHeader('Alertness'),
+                        _buildTableHeader('Location'),
+                        _buildTableHeader('Last Update'),
+                        _buildTableHeader('Actions'),
+                      ],
+                    ),
+                    ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle)),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
+  Widget _buildEmergency() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(40.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Emergency Services',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Quick access to emergency services and contacts',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildEmergencyServiceCard(
+                    'Police',
+                    '15',
+                    Icons.local_police_outlined,
+                    Colors.blue[700]!,
+                    Colors.blue[50]!,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: _buildEmergencyServiceCard(
+                    'Ambulance',
+                    '1122',
+                    Icons.local_hospital_outlined,
+                    Colors.red[700]!,
+                    Colors.red[50]!,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: _buildEmergencyServiceCard(
+                    'Fire Department',
+                    '16',
+                    Icons.local_fire_department_outlined,
+                    Colors.orange[700]!,
+                    Colors.orange[50]!,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _buildEmergencyContactsTable(),
+          ],
+        ),
+      ),
+    );
+  }
   Widget _buildEmergencyContactsTable() {
     return StreamBuilder<List<EmergencyContact>>(
       stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),

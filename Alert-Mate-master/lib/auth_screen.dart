@@ -594,7 +594,7 @@ class _AuthScreenState extends State<AuthScreen>
                           opacity: _fadeAnimation,
                           child: Center(
                             child: Container(
-                              width: 500,
+                              constraints: const BoxConstraints(maxWidth: 500),
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               padding: const EdgeInsets.all(40),

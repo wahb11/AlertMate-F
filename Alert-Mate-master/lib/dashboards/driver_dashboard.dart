@@ -1144,39 +1144,50 @@ class _DriverDashboardState extends State<DriverDashboard>
             const SizedBox(height: 32),
 
             // Emergency Services Grid
-            Row(
+            Wrap(
+              spacing: 20,
+              runSpacing: 20,
               children: [
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Police',
-                  '15',
-                  Icons.local_police,
-                  const Color(0xFF2196F3),
-                  const Color(0xFFE3F2FD),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Ambulance',
-                  '1122',
-                  Icons.local_hospital,
-                  Colors.red,
-                  const Color(0xFFFFEBEE),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Fire Department',
-                  '16',
-                  Icons.local_fire_department,
-                  const Color(0xFFFF6F00),
-                  const Color(0xFFFFF3E0),
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildEmergencyServiceCard(
-                  'Motorway Police',
-                  '130',
-                  Icons.car_crash,
-                  const Color(0xFF4CAF50),
-                  const Color(0xFFE8F5E9),
-                )),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Police',
+                    '15',
+                    Icons.local_police,
+                    const Color(0xFF2196F3),
+                    const Color(0xFFE3F2FD),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Ambulance',
+                    '1122',
+                    Icons.local_hospital,
+                    Colors.red,
+                    const Color(0xFFFFEBEE),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Fire Department',
+                    '16',
+                    Icons.local_fire_department,
+                    const Color(0xFFFF6F00),
+                    const Color(0xFFFFF3E0),
+                  ),
+                ),
+                SizedBox(
+                  width: 280,
+                  child: _buildEmergencyServiceCard(
+                    'Motorway Police',
+                    '130',
+                    Icons.car_crash,
+                    const Color(0xFF4CAF50),
+                    const Color(0xFFE8F5E9),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 32),
