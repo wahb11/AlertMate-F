@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart' as app_models;
+import 'vehicle_service.dart';
 
 class FirebaseAuthService {
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
@@ -37,52 +38,7 @@ class FirebaseAuthService {
     try {
       print('🚀 Starting sign up process for: $email with roles: $roles');
       
-      // First, check if user already exists in Firestore
-      bool exists = await userExists(email);
-      
-      if (exists) {
-        // User exists: ADD NEW ROLE instead of creating new auth user
-        print('👤 User exists with this email. Adding new role: $roles');
-        
-        final querySnapshot = await _firestore
-            .collection('users')
-            .where('email', isEqualTo: email)
-            .get();
-        
-        if (querySnapshot.docs.isNotEmpty) {
-          String uid = querySnapshot.docs.first.id;
-          Map<String, dynamic> data = querySnapshot.docs.first.data();
-          
-          List<String> existingRoles = List<String>.from(data['roles'] ?? []);
-          
-          // Add new roles if not already present
-          for (String role in roles) {
-            if (!existingRoles.contains(role)) {
-              existingRoles.add(role);
-              print('➕ Added role: $role');
-            }
-          }
-          
-          // Update user with new roles
-          await _firestore.collection('users').doc(uid).update({
-            'roles': existingRoles,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-          
-          print('✅ Roles updated for existing user: $existingRoles');
-          
-          // Verify the update
-          var doc = await _firestore.collection('users').doc(uid).get();
-          if (doc.exists) {
-            print('📊 VERIFICATION: Updated roles in Firestore!');
-            print('📊 User data: ${doc.data()}');
-          }
-          
-          return _auth.currentUser;
-        }
-      }
-
-      // Create new Firebase Auth user
+      // Create Firebase Auth user
       print('👤 Creating Firebase Auth user...');
       firebase_auth.UserCredential userCredential = 
           await _auth.createUserWithEmailAndPassword(
@@ -108,14 +64,14 @@ class FirebaseAuthService {
         'uid': userCredential.user!.uid,
         'firstName': firstName,
         'lastName': lastName,
+        'name': '$firstName $lastName', 
         'email': email,
         'phone': phone,
-        'roles': roles,
-        'activeRole': activeRole,
+        'roles': roles, 
+        'activeRole': activeRole, 
         'emailVerified': false,
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
-        'profilePicture': '',
       });
 
       print('✅ User data saved to Firestore successfully!');
@@ -128,56 +84,85 @@ class FirebaseAuthService {
         print('📊 User data: ${doc.data()}');
       }
 
+      // Check for auto-assignment if driver role is added
+      if (roles.contains('driver')) {
+        await _checkAndAssignVehicles(userCredential.user!.uid, email);
+      }
+
       return userCredential.user;
     } on firebase_auth.FirebaseAuthException catch (e) {
-      print('❌ Firebase Auth Error: ${e.code} - ${e.message}');
       if (e.code == 'email-already-in-use') {
-        // Try to add role with password verification
+        print('⚠️ Email already in use. Attempting to add role to existing user...');
         try {
-          print('⚠️ Email already in Firebase Auth. Attempting to add role...');
-          firebase_auth.UserCredential signInCredential = 
-              await _auth.signInWithEmailAndPassword(
-            email: email,
-            password: password,
-          );
+          // 1. Verify password by signing in
+          firebase_auth.UserCredential credential = 
+              await _auth.signInWithEmailAndPassword(email: email, password: password);
           
-          String uid = signInCredential.user!.uid;
+          String uid = credential.user!.uid;
           
-          // Get existing roles
-          DocumentSnapshot doc = 
-              await _firestore.collection('users').doc(uid).get();
-          
+          // 2. Get existing roles
+          DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
           if (doc.exists) {
             Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            List<String> existingRoles = 
-                List<String>.from(data['roles'] ?? []);
+            List<String> existingRoles = List<String>.from(data['roles'] ?? []);
             
-            // Add new roles
+            // 3. Add new roles
+            bool rolesUpdated = false;
             for (String role in roles) {
               if (!existingRoles.contains(role)) {
                 existingRoles.add(role);
-                print('➕ Added role: $role');
+                rolesUpdated = true;
+                print('➕ Adding new role: $role');
               }
             }
             
-            // Update Firestore
-            await _firestore.collection('users').doc(uid).update({
-              'roles': existingRoles,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            if (rolesUpdated) {
+              await _firestore.collection('users').doc(uid).update({
+                'roles': existingRoles,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+              print('✅ Roles updated successfully: $existingRoles');
+              
+              // Check for auto-assignment if driver role was added
+              if (roles.contains('driver')) {
+                await _checkAndAssignVehicles(uid, email);
+              }
+            } else {
+              print('ℹ️ User already has these roles.');
+            }
             
-            print('✅ Roles added successfully to existing user');
-            return signInCredential.user;
+            return credential.user;
           }
         } catch (signInError) {
-          print('❌ Sign in failed. Wrong password or user not found.');
-          throw Exception('Incorrect password for existing email');
+          print('❌ Failed to add role: Incorrect password or other error: $signInError');
+          throw Exception('Account exists. Please enter the correct password to add this role.');
         }
       }
+      
+      print('❌ Firebase Auth Error: ${e.code} - ${e.message}');
       throw Exception(_getAuthErrorMessage(e.code));
     } catch (e) {
       print('❌ Unexpected error during sign up: $e');
       rethrow;
+    }
+  }
+
+  // Helper for vehicle assignment
+  Future<void> _checkAndAssignVehicles(String uid, String email) async {
+    print('🚕 Checking for vehicle assignments...');
+    final VehicleService vehicleService = VehicleService();
+    
+    List<String> assignedIds = await vehicleService.assignOwnerPendingVehicles(uid, email);
+    
+    if (assignedIds.isNotEmpty) {
+      print('✅ Auto-assigned ${assignedIds.length} owner-pending vehicle(s)');
+    } else {
+      bool assigned = await vehicleService.assignGeneralPendingVehiclesToNewDriver(uid, email);
+      if (assigned) {
+        print('✅ Auto-assigned 1 vehicle from general pool');
+      } else {
+        print('ℹ️ No vehicles available for assignment at this time');
+      }
     }
   }
 
@@ -207,14 +192,14 @@ class FirebaseAuthService {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         
         // Handle both old (single role) and new (multiple roles) format
-        List<String>? roles;
+        List<String> roles;
         String activeRole;
         
-        if (data.containsKey('roles') && data['roles'] is List) {
+        if (data.containsKey('roles')) {
           // New format with roles array
           roles = List<String>.from(data['roles'] ?? ['passenger']);
-          activeRole = data['activeRole'] ?? roles!.first;
-        } else if (data.containsKey('role') && data['role'] is String) {
+          activeRole = data['activeRole'] ?? roles.first;
+        } else if (data.containsKey('role')) {
           // Old format with single role - migrate automatically
           String oldRole = data['role'] ?? 'passenger';
           roles = [oldRole];
@@ -233,13 +218,11 @@ class FirebaseAuthService {
         
         return app_models.User(
           id: userCredential.user!.uid,
-          firstName: data['firstName'] ?? '',
-          lastName: data['lastName'] ?? '',
-          email: data['email'] ?? '',
-          phone: data['phone'] ?? '',
-          role: activeRole,
-          roles: roles,
-          profilePicture: data['profilePicture'] ?? '',
+          firstName: data['firstName'],
+          lastName: data['lastName'],
+          email: data['email'],
+          phone: data['phone'],
+          role: activeRole, // Use activeRole for current role
         );
       }
 
@@ -258,6 +241,7 @@ class FirebaseAuthService {
     try {
       print('🔄 Updating active role to: $newActiveRole');
       
+      // First verify the user has this role
       DocumentSnapshot doc = await _firestore.collection('users').doc(uid).get();
       
       if (doc.exists) {
@@ -267,7 +251,6 @@ class FirebaseAuthService {
         if (roles.contains(newActiveRole)) {
           await _firestore.collection('users').doc(uid).update({
             'activeRole': newActiveRole,
-            'updatedAt': FieldValue.serverTimestamp(),
           });
           print('✅ Active role updated to: $newActiveRole');
         } else {
@@ -296,7 +279,6 @@ class FirebaseAuthService {
           roles.add(role);
           await _firestore.collection('users').doc(uid).update({
             'roles': roles,
-            'updatedAt': FieldValue.serverTimestamp(),
           });
           print('✅ Role added successfully: $role');
         } else {
@@ -324,22 +306,19 @@ class FirebaseAuthService {
         if (roles.contains(role)) {
           roles.remove(role);
           
-          if (roles.isEmpty) {
-            print('❌ Cannot remove last role');
-            throw Exception('Cannot remove last role');
-          }
-          
-          if (activeRole == role) {
+          // If removing the active role, switch to another role
+          if (activeRole == role && roles.isNotEmpty) {
             await _firestore.collection('users').doc(uid).update({
               'roles': roles,
               'activeRole': roles.first,
-              'updatedAt': FieldValue.serverTimestamp(),
             });
             print('✅ Role removed and switched active role to: ${roles.first}');
+          } else if (roles.isEmpty) {
+            print('❌ Cannot remove last role');
+            throw Exception('Cannot remove last role');
           } else {
             await _firestore.collection('users').doc(uid).update({
               'roles': roles,
-              'updatedAt': FieldValue.serverTimestamp(),
             });
             print('✅ Role removed successfully');
           }
@@ -394,7 +373,7 @@ class FirebaseAuthService {
       await _firestore.collection('users').doc(uid).update({
         'roles': [oldRole],
         'activeRole': oldRole,
-        'role': FieldValue.delete(),
+        'role': FieldValue.delete(), // Remove old field
       });
       print('✅ User migrated successfully');
     } catch (e) {
@@ -414,19 +393,22 @@ class FirebaseAuthService {
       for (var doc in users.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         
+        // Check if user has old 'role' field (string)
         if (data.containsKey('role') && data['role'] is String && !data.containsKey('roles')) {
           String oldRole = data['role'];
           
+          // Update to new structure
           await _firestore.collection('users').doc(doc.id).update({
-            'roles': [oldRole],
+            'roles': [oldRole], // Convert to array
             'activeRole': oldRole,
-            'role': FieldValue.delete(),
+            'role': FieldValue.delete(), // Delete old field
           });
           
           migratedCount++;
           print('✅ Migrated user: ${doc.id} with role: $oldRole');
         } else {
           skippedCount++;
+          print('⏭️ Skipped user: ${doc.id} (already migrated or no role field)');
         }
       }
       
@@ -483,14 +465,15 @@ class FirebaseAuthService {
     }
   }
 
-  // Check if email is verified
+  // Check if email is verified (refresh the user first)
   Future<bool> isEmailVerified() async {
     try {
       firebase_auth.User? user = _auth.currentUser;
       if (user != null) {
-        await user.reload();
-        user = _auth.currentUser;
+        await user.reload(); // Refresh user data
+        user = _auth.currentUser; // Get updated user
         
+        // If verified in Firebase Auth, update Firestore too
         if (user?.emailVerified == true) {
           await _firestore.collection('users').doc(user!.uid).update({
             'emailVerified': true,
@@ -512,8 +495,8 @@ class FirebaseAuthService {
     try {
       firebase_auth.User? user = _auth.currentUser;
       if (user != null) {
-        await user.reload();
-        user = _auth.currentUser;
+        await user.reload(); // Refresh user data
+        user = _auth.currentUser; // Get updated user
         
         if (user != null) {
           await _firestore.collection('users').doc(user.uid).update({
@@ -534,7 +517,7 @@ class FirebaseAuthService {
       case 'weak-password':
         return 'Password is too weak. Use at least 6 characters.';
       case 'email-already-in-use':
-        return 'An account with this email exists. Use correct password to add new role.';
+        return 'An account already exists with this email.';
       case 'invalid-email':
         return 'Invalid email address.';
       case 'user-not-found':

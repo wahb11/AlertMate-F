@@ -23,61 +23,48 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
   
   int _selectedIndex = 0;
   bool _isLoading = false;
-  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   String _statusFilter = 'All Status';
-  List<Vehicle> _vehicles = [];
+   bool _showClearButton = false;
+  
 
   // Animation controllers
   late AnimationController _fadeController;
   late AnimationController _slideController;
 
   @override
-  void initState() {
-    super.initState();
-    _emergencyContactService = EmergencyContactService();
-    _isLoading = false;
-    
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _fadeController.forward();
-    _slideController.forward();
-    _loadVehicles();
-  }
+void initState() {
+  super.initState();
+  _emergencyContactService = EmergencyContactService();
+  _isLoading = false;
+  
+  // Add listener for search controller
+  _searchController.addListener(() {
+    setState(() {
+      _showClearButton = _searchController.text.isNotEmpty;
+    });
+  });
+  
+  _fadeController = AnimationController(
+    duration: const Duration(milliseconds: 800),
+    vsync: this,
+  );
+  _slideController = AnimationController(
+    duration: const Duration(milliseconds: 600),
+    vsync: this,
+  );
+  
+  _fadeController.forward();
+  _slideController.forward();
+}
 
   @override
   void dispose() {
+    _searchController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
   }
-
-  Future<void> _loadVehicles() async {
-    setState(() => _isLoading = true);
-    try {
-      final vehicles = await _vehicleService.getVehiclesForOwner(widget.user.id);
-      if (mounted) {
-        setState(() {
-          _vehicles = vehicles;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading vehicles: $e')),
-        );
-      }
-    }
-  }
-
   
    Future<void> _showAddVehicleDialog() async {
   final formKey = GlobalKey<FormState>();
@@ -175,7 +162,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                             backgroundColor: AppColors.success,
                           ),
                         );
-                        _loadVehicles();
                       }
                     }
                   } catch (e) {
@@ -216,7 +202,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                   duration: Duration(seconds: 4),
                 ),
               );
-              _loadVehicles();
+             
             },
             child: const Text('Not Now'),
           ),
@@ -362,81 +348,88 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                   ),
                   0,
                 ),
-                const SizedBox(height: 32),
-                _buildStaggeredItem(
-                  isMobile
-                      ? Column(
-                          children: [
-                            _buildStatCard(
-                              'Total Vehicles',
-                              _vehicles.length.toString(),
-                              'Fleet size',
-                              Icons.directions_car_outlined,
-                              AppColors.primary,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildStatCard(
-                              'Active Drivers',
-                              _vehicles.where((v) => v.status == 'Active').length.toString(),
-                              'Currently driving',
-                              Icons.people_outline,
-                              AppColors.success,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildStatCard(
-                              'Critical Alerts',
-                              _vehicles.where((v) => v.status == 'Critical').length.toString(),
-                              'Requires attention',
-                              Icons.warning_amber_rounded,
-                              AppColors.danger,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildStatCard(
-                              'Safety Score',
-                              '8.4/10',
-                              'Overall performance',
-                              Icons.shield_outlined,
-                              AppColors.success,
-                            ),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(child: _buildStatCard(
-                              'Total Vehicles',
-                              _vehicles.length.toString(),
-                              'Fleet size',
-                              Icons.directions_car_outlined,
-                              AppColors.primary,
-                            )),
-                            const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard(
-                              'Active Drivers',
-                              _vehicles.where((v) => v.status == 'Active').length.toString(),
-                              'Currently driving',
-                              Icons.people_outline,
-                              AppColors.success,
-                            )),
-                            const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard(
-                              'Critical Alerts',
-                              _vehicles.where((v) => v.status == 'Critical').length.toString(),
-                              'Requires attention',
-                              Icons.warning_amber_rounded,
-                              AppColors.danger,
-                            )),
-                            const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard(
-                              'Safety Score',
-                              '8.4/10',
-                              'Overall performance',
-                              Icons.shield_outlined,
-                              AppColors.success,
-                            )),
-                          ],
-                        ),
-                  1,
+               const SizedBox(height: 32),
+StreamBuilder<List<Vehicle>>(
+  stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
+  builder: (context, snapshot) {
+    final vehicles = snapshot.data ?? [];
+    
+    return _buildStaggeredItem(
+      isMobile
+          ? Column(
+              children: [
+                _buildStatCard(
+                  'Total Vehicles',
+                  vehicles.length.toString(),
+                  'Fleet size',
+                  Icons.directions_car_outlined,
+                  AppColors.primary,
                 ),
+                const SizedBox(height: 16),
+                _buildStatCard(
+                  'Active Drivers',
+                  vehicles.where((v) => v.status == 'Active').length.toString(),
+                  'Currently driving',
+                  Icons.people_outline,
+                  AppColors.success,
+                ),
+                const SizedBox(height: 16),
+                _buildStatCard(
+                  'Critical Alerts',
+                  vehicles.where((v) => v.status == 'Critical').length.toString(),
+                  'Requires attention',
+                  Icons.warning_amber_rounded,
+                  AppColors.danger,
+                ),
+                const SizedBox(height: 16),
+                _buildStatCard(
+                  'Safety Score',
+                  '8.4/10',
+                  'Overall performance',
+                  Icons.shield_outlined,
+                  AppColors.success,
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: _buildStatCard(
+                  'Total Vehicles',
+                  vehicles.length.toString(),
+                  'Fleet size',
+                  Icons.directions_car_outlined,
+                  AppColors.primary,
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildStatCard(
+                  'Active Drivers',
+                  vehicles.where((v) => v.status == 'Active').length.toString(),
+                  'Currently driving',
+                  Icons.people_outline,
+                  AppColors.success,
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildStatCard(
+                  'Critical Alerts',
+                  vehicles.where((v) => v.status == 'Critical').length.toString(),
+                  'Requires attention',
+                  Icons.warning_amber_rounded,
+                  AppColors.danger,
+                )),
+                const SizedBox(width: 20),
+                Expanded(child: _buildStatCard(
+                  'Safety Score',
+                  '8.4/10',
+                  'Overall performance',
+                  Icons.shield_outlined,
+                  AppColors.success,
+                )),
+              ],
+            ),
+      1,
+    );
+  },
+),
                 const SizedBox(height: 32),
                 _buildStaggeredItem(
                   _buildFleetOverview(),
@@ -540,17 +533,33 @@ Widget _buildFleetOverview() {
       stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Center(child: CircularProgressIndicator()),
+          );
         }
 
         final vehicles = snapshot.data ?? [];
 
         // --- FILTERING ---
         List<Vehicle> filteredVehicles = vehicles.where((vehicle) {
-          bool matchesSearch = _searchQuery.isEmpty ||
-              (vehicle.driverName?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-              vehicle.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              vehicle.status.toLowerCase().contains(_searchQuery.toLowerCase());
+          bool matchesSearch = _searchController.text.isEmpty ||
+    vehicle.licensePlate.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+    (vehicle.driverName?.toLowerCase().contains(_searchController.text.toLowerCase()) ?? false) ||
+    vehicle.status.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+    (vehicle.location?.toLowerCase().contains(_searchController.text.toLowerCase()) ?? false) ||
+    '${vehicle.make} ${vehicle.model}'.toLowerCase().contains(_searchController.text.toLowerCase());
 
           bool matchesFilter = _statusFilter == 'All Status' || vehicle.status == _statusFilter;
 
@@ -589,70 +598,177 @@ Widget _buildFleetOverview() {
                       SizedBox(
                         width: 250,
                         child: TextField(
+                          key: const Key('fleet_search_field'),
+                           controller: _searchController,
                           decoration: InputDecoration(
                             hintText: 'Search vehicles...',
                             prefixIcon: const Icon(Icons.search, size: 20),
+                            suffixIcon: _showClearButton  // ✅ Use state variable instead
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                     _searchController.clear();
+                                    setState(() {});
+                                    },
+                                  )
+                                : null,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: Colors.grey[300]!),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFF2196F3), width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           ),
-                          onChanged: (value) => setState(() => _searchQuery = value),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      DropdownButton<String>(
-                        value: _statusFilter,
-                        items: const [
-                          DropdownMenuItem(value: 'All Status', child: Text('All Status')),
-                          DropdownMenuItem(value: 'Active', child: Text('Active')),
-                          DropdownMenuItem(value: 'Break', child: Text('Break')),
-                          DropdownMenuItem(value: 'Critical', child: Text('Critical')),
-                        ],
-                        onChanged: (value) => setState(() => _statusFilter = value!),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _statusFilter,
+                          underline: const SizedBox(),
+                          icon: const Icon(Icons.arrow_drop_down),
+                          items: const [
+                            DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+                            DropdownMenuItem(value: 'Active', child: Text('Active')),
+                            DropdownMenuItem(value: 'Break', child: Text('Break')),
+                            DropdownMenuItem(value: 'Critical', child: Text('Critical')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _statusFilter = value!;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              if (filteredVehicles.isEmpty)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Text('No vehicles found'),
-                  ),
-                )
-              else
-                Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.2),
-                    1: FlexColumnWidth(1.5),
-                    2: FlexColumnWidth(1.0),
-                    3: FlexColumnWidth(1.5),
-                    4: FlexColumnWidth(1.5),
-                    5: FlexColumnWidth(1.2),
-                    6: FlexColumnWidth(1.0),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 16),
+            if (_searchController.text.isNotEmpty || _statusFilter != 'All Status')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Found ${filteredVehicles.length} vehicle${filteredVehicles.length != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
+                      if (_searchController.text.isNotEmpty || _statusFilter != 'All Status') ...[
+  const SizedBox(width: 8),
+  TextButton.icon(
+    onPressed: () {
+      setState(() {
+        _searchController.clear();
+        _statusFilter = 'All Status';
+      });
+    },
+                          icon: const Icon(Icons.clear, size: 16),
+                          label: const Text('Clear filters'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+             if (filteredVehicles.isEmpty)
+  Center(
+    child: Padding(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(
+            _searchController.text.isNotEmpty || _statusFilter != 'All Status'
+                ? Icons.search_off
+                : Icons.directions_car_outlined,
+            size: 48,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchController.text.isNotEmpty || _statusFilter != 'All Status'
+                ? 'No vehicles match your search'
+                : 'No vehicles found',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ), // ✅ Remove the extra ), after this line
+          if (_searchController.text.isNotEmpty || _statusFilter != 'All Status') ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _searchController.clear();
+                  _statusFilter = 'All Status';
+                });
+              },
+              child: const Text('Clear filters'),
+            ),
+          ],
+        ],
+      ),
+    ),
+  )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: MediaQuery.of(context).size.width - 160,
+                    ),
+                    child: Table(
+                      columnWidths: const {
+                        0: FixedColumnWidth(120),
+                        1: FixedColumnWidth(150),
+                        2: FixedColumnWidth(100),
+                        3: FixedColumnWidth(150),
+                        4: FixedColumnWidth(150),
+                        5: FixedColumnWidth(120),
+                        6: FixedColumnWidth(100),
+                      },
                       children: [
-                        _buildTableHeader('Vehicle ID'),
-                        _buildTableHeader('Driver'),
-                        _buildTableHeader('Status'),
-                        _buildTableHeader('Alertness'),
-                        _buildTableHeader('Location'),
-                        _buildTableHeader('Last Update'),
-                        _buildTableHeader('Actions'),
+                        TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          children: [
+                            _buildTableHeader('License Plate'),
+                            _buildTableHeader('Driver'),
+                            _buildTableHeader('Status'),
+                            _buildTableHeader('Alertness'),
+                            _buildTableHeader('Location'),
+                            _buildTableHeader('Last Update'),
+                            _buildTableHeader('Actions'),
+                          ],
+                        ),
+                        ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle)),
                       ],
                     ),
-                    ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle)),
-                  ],
+                  ),
                 ),
             ],
           ),
@@ -660,8 +776,7 @@ Widget _buildFleetOverview() {
       },
     );
   }
-
-  Widget _buildEmergency() {
+    Widget _buildEmergency() {
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(40.0),
@@ -1402,7 +1517,7 @@ Widget _buildFleetOverview() {
   TableRow _buildVehicleRow(Vehicle vehicle) {
     return TableRow(
       children: [
-        _buildTableCell(vehicle.id),
+        _buildTableCell(vehicle.licensePlate),
         _buildTableCell(vehicle.driverName ?? 'Unassigned'),
         _buildStatusBadge(vehicle.status),
         _buildAlertnessCell(vehicle.alertness),

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/vehicle.dart';
 import 'firebase_auth_service.dart';
 
+
 class VehicleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
@@ -124,13 +125,19 @@ class VehicleService {
     try {
       print('🔗 Assigning vehicle $vehicleId to driver $driverId');
       
-      // Get driver name
       DocumentSnapshot driverDoc = 
           await _firestore.collection('users').doc(driverId).get();
       String driverName = 'Unknown Driver';
       if (driverDoc.exists) {
         Map<String, dynamic> data = driverDoc.data() as Map<String, dynamic>;
-        driverName = data['name'] ?? data['email'] ?? 'Unknown Driver';
+        // Try 'name', then combine first/last, then email, then fallback
+        if (data.containsKey('name') && data['name'] != null && data['name'].toString().isNotEmpty) {
+          driverName = data['name'];
+        } else if (data['firstName'] != null && data['lastName'] != null) {
+          driverName = '${data['firstName']} ${data['lastName']}';
+        } else {
+          driverName = data['email'] ?? 'Unknown Driver';
+        }
       }
       
       await _firestore.collection('vehicles').doc(vehicleId).update({
