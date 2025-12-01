@@ -78,151 +78,167 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     }
   }
 
-  Future<void> _showAddVehicleDialog() async {
-    final formKey = GlobalKey<FormState>();
-    String make = '';
-    String model = '';
-    String year = '';
-    String licensePlate = '';
-    bool willDrive = false;
+  
+   Future<void> _showAddVehicleDialog() async {
+  final formKey = GlobalKey<FormState>();
+  String make = '';
+  String model = '';
+  String year = '';
+  String licensePlate = '';
+  bool willDrive = false;
 
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('Add New Vehicle'),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Make'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                    onSaved: (value) => make = value!,
-                  ),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Model'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                    onSaved: (value) => model = value!,
-                  ),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Year'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                    onSaved: (value) => year = value!,
-                  ),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'License Plate'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                    onSaved: (value) => licensePlate = value!,
-                  ),
-                  const SizedBox(height: 16),
-                  CheckboxListTile(
-                    title: const Text('I will be driving this vehicle'),
-                    subtitle: const Text('Assign this vehicle to me'),
-                    value: willDrive,
-                    onChanged: (value) {
-                      setState(() {
-                        willDrive = value!;
-                      });
-                    },
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    activeColor: AppColors.primary,
-                  ),
-                ],
-              ),
+  await showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context,  setDialogState) {
+        return AlertDialog(
+          title: const Text('Add New Vehicle'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Make'),
+                  validator: (value) => value!.isEmpty ? 'Required' : null,
+                  onSaved: (value) => make = value!,
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Model'),
+                  validator: (value) => value!.isEmpty ? 'Required' : null,
+                  onSaved: (value) => model = value!,
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Year'),
+                  validator: (value) => value!.isEmpty ? 'Required' : null,
+                  onSaved: (value) => year = value!,
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'License Plate'),
+                  validator: (value) => value!.isEmpty ? 'Required' : null,
+                  onSaved: (value) => licensePlate = value!,
+                ),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  title: const Text('I will be driving this vehicle'),
+                  subtitle: const Text('Assign this vehicle to me'),
+                  value: willDrive,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      willDrive = value!;
+                    });
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppColors.primary,
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (formKey.currentState!.validate()) {
-                    formKey.currentState!.save();
-                    Navigator.pop(context);
-                    
-                    try {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Adding vehicle...')),
-                      );
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  formKey.currentState!.save();
+                  Navigator.pop(context);
+                  
+                  try {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Adding vehicle...')),
+                    );
 
-                      final result = await _vehicleService.addVehicleWithDriverCheck(
-                        make: make,
-                        model: model,
-                        year: year,
-                        licensePlate: licensePlate,
-                        ownerId: widget.user.id,
-                        ownerEmail: widget.user.email,
-                        willOwnerDrive: willDrive,
-                      );
+                    final result = await _vehicleService.addVehicleWithDriverCheck(
+                      make: make,
+                      model: model,
+                      year: year,
+                      licensePlate: licensePlate,
+                      ownerId: widget.user.id,
+                      ownerEmail: widget.user.email,
+                      willOwnerDrive: willDrive,
+                    );
 
-                      if (result == null && willDrive) {
-                        if (mounted) {
-                          _showDriverRegistrationDialog();
-                        }
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(willDrive 
-                                ? 'Vehicle added and assigned to you!' 
-                                : 'Vehicle added successfully'),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
-                          _loadVehicles();
-                        }
+                    if (result == null && willDrive) {
+                      if (mounted) {
+                        _showDriverRegistrationDialog();
                       }
-                    } catch (e) {
+                    } else {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                          SnackBar(
+                            content: Text(willDrive 
+                              ? 'Vehicle added and assigned to you!' 
+                              : 'Vehicle added successfully'),
+                            backgroundColor: AppColors.success,
+                          ),
                         );
+                        _loadVehicles();
                       }
                     }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                      );
+                    }
                   }
-                },
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        }
-      ),
-    );
-  }
-
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
   void _showDriverRegistrationDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Driver Registration Required'),
         content: const Text(
-          'To drive this vehicle, you need to be registered as a driver. '
-          'Would you like to register now?'
+          'You need to register as a driver before you can be assigned to a vehicle. '
+          'Would you like to register as a driver now?'
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Vehicle added to your fleet. It will be auto-assigned when a driver signs up.'),
+                  backgroundColor: AppColors.success,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+              _loadVehicles();
+            },
+            child: const Text('Not Now'),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => AuthScreen(
-                    isOwnerBecomingDriver: true,
+                  builder: (context) => const AuthScreen(
+                    initialDashboardIndex: 0,
                     initialIsSignIn: false,
+                    isOwnerBecomingDriver: true,
                   ),
                 ),
               );
             },
-            child: const Text('Register'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Register as Driver'),
           ),
         ],
       ),
@@ -589,108 +605,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
     },
   );
 }
-
-
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    switch (status) {
-      case 'Active':
-        color = AppColors.success;
-        break;
-      case 'Break':
-        color = AppColors.primary;
-        break;
-      case 'Critical':
-        color = AppColors.danger;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          status,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlertnessCell(int alertnessValue) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Text(
-            '$alertnessValue%',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: alertnessValue / 100,
-                minHeight: 6,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  alertnessValue >= 80 ? AppColors.success :
-                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCell() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('View vehicle details'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.phone_outlined, size: 20),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Calling driver...'))
-              );
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildEmergency() {
     return SingleChildScrollView(
@@ -1396,6 +1310,149 @@ class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStat
                   }
                 }
               }
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Helper methods for fleet overview table
+  Widget _buildTableHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildVehicleRow(Vehicle vehicle) {
+    return TableRow(
+      children: [
+        _buildTableCell(vehicle.id),
+        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
+        _buildStatusBadge(vehicle.status),
+        _buildAlertnessCell(vehicle.alertness),
+        _buildTableCell(vehicle.location ?? 'Unknown'),
+        _buildTableCell(vehicle.lastUpdate ?? 'N/A'),
+        _buildActionsCell(),
+      ],
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    switch (status) {
+      case 'Active':
+        color = AppColors.success;
+        break;
+      case 'Break':
+        color = AppColors.primary;
+        break;
+      case 'Critical':
+        color = AppColors.danger;
+        break;
+      default:
+        color = Colors.grey;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          status,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertnessCell(int alertnessValue) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Text(
+            '$alertnessValue%',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: alertnessValue / 100,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  alertnessValue >= 80 ? AppColors.success :
+                  alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionsCell() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('View vehicle details'))
+              );
+            },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.phone_outlined, size: 20),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Calling driver...'))
+              );
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
