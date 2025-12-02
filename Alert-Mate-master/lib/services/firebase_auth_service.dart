@@ -222,7 +222,8 @@ class FirebaseAuthService {
           lastName: data['lastName'],
           email: data['email'],
           phone: data['phone'],
-          role: activeRole, // Use activeRole for current role
+          role: activeRole,
+          roles: roles,
         );
       }
 

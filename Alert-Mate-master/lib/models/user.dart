@@ -1,12 +1,16 @@
 class User {
+  /// Non-nullable unique identifier (Firebase UID)
   final String id;
   final String firstName;
   final String lastName;
   final String email;
   final String phone;
-  final String role;
+
+  /// Single active role (e.g. 'driver', 'owner')
+  final String? role;
+
+  /// Optional list of all roles this user has (e.g. ['owner', 'driver'])
   final List<String>? roles;
-  final String profilePicture;
 
   User({
     required this.id,
@@ -14,14 +18,11 @@ class User {
     required this.lastName,
     required this.email,
     required this.phone,
-    required this.role,
+    this.role,
     this.roles,
-    this.profilePicture = '',
   });
 
   String get fullName => '$firstName $lastName';
-
-  bool hasRole(String checkRole) => roles?.contains(checkRole) ?? false;
 
   Map<String, dynamic> toMap() {
     return {
@@ -31,21 +32,24 @@ class User {
       'email': email,
       'phone': phone,
       'role': role,
-      'roles': roles ?? [role],
-      'profilePicture': profilePicture,
+      'roles': roles,
     };
   }
 
   factory User.fromMap(Map<String, dynamic> map) {
+    final dynamic rawRoles = map['roles'];
+    final List<String>? roleList = rawRoles is List
+        ? rawRoles.map((e) => e.toString()).toList()
+        : null;
+
     return User(
-      id: map['id'] ?? '',
+      id: (map['id'] ?? map['uid'] ?? '') as String,
       firstName: map['firstName'] ?? '',
       lastName: map['lastName'] ?? '',
       email: map['email'] ?? '',
       phone: map['phone'] ?? '',
-      role: map['role'] ?? map['activeRole'] ?? 'passenger',
-      roles: List<String>.from(map['roles'] ?? [map['role'] ?? 'passenger']),
-      profilePicture: map['profilePicture'] ?? '',
+      role: map['role'] ?? map['activeRole'],
+      roles: roleList,
     );
   }
 }

@@ -8,6 +8,8 @@ import '../models/vehicle.dart';
 import '../models/emergency_contact.dart';
 import '../services/vehicle_service.dart';
 import '../services/emergency_contact_service.dart';
+import '../services/monitoring_service.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
@@ -38,6 +40,9 @@ class _DriverDashboardState extends State<DriverDashboard>
   Vehicle? _assignedVehicle;
   final VehicleService _vehicleService = VehicleService();
   final EmergencyContactService _emergencyContactService = EmergencyContactService();
+  final MonitoringService _monitoringService = MonitoringService();
+  Timer? _statsUpdateTimer;
+  String? _currentSessionId;
   
   
   // Animation controllers
@@ -93,10 +98,22 @@ class _DriverDashboardState extends State<DriverDashboard>
     _slideController.dispose();
     _scaleController.dispose();
     _updateTimer?.cancel();
+    _statsUpdateTimer?.cancel();
     super.dispose();
   }
 
-  void _startMonitoring() {
+  void _startMonitoring() async {
+    final driverId = widget.user.id;
+    if (driverId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot start monitoring: driver ID is missing')),
+      );
+      return;
+    }
+
+    // Start Firebase session
+    _currentSessionId = await _monitoringService.startMonitoringSession(driverId);
+    
     setState(() {
       _isMonitoring = true;
     });
@@ -115,30 +132,69 @@ class _DriverDashboardState extends State<DriverDashboard>
         });
       });
     }
+    
+    // Update Firebase every second
+    _statsUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _monitoringService.updateRealtimeStats(
+        driverId: driverId,
+        alertness: _alertness,
+        ear: _ear,
+        mar: _mar,
+        eyeClosure: _eyeClosurePercentage,
+        drowsinessDetected: _alertness < 70,
+      );
+    });
   }
 
-  void _stopMonitoring() {
+  void _stopMonitoring() async {
+    final driverId = widget.user.id;
+
     setState(() {
       _isMonitoring = false;
     });
     _updateTimer?.cancel();
+    _statsUpdateTimer?.cancel();
     _killPythonMonitor();
+    
+    // End Firebase session
+    if (_currentSessionId != null && driverId != null) {
+      await _monitoringService.endMonitoringSession(driverId);
+      _currentSessionId = null;
+    }
   }
 
-  Future<void> _launchPythonMonitor() async {
-    try {
-      // Adjust paths as needed. Model path provided by user.
-      final scriptPath = Platform.isWindows
-          ? '${Directory.current.path}\\python\\drowsiness_monitor.py'
-          : '${Directory.current.path}/python/drowsiness_monitor.py';
-      final modelPath = r"C:\\Users\\123\\Downloads"; // TODO: point to your actual model file
+ Future<void> _launchPythonMonitor() async {
+  try {
+    final projectRoot = Directory.current.path;
+    
+    final scriptPath = Platform.isWindows
+        ? '$projectRoot\\python\\drowsiness_monitor_flutter.py'
+        : '$projectRoot/python/drowsiness_monitor_flutter.py';
+    
+    // Models in same python folder
+    // NOTE: make sure these file names match your actual files in the python/ folder
+    final landmarkModelPath = Platform.isWindows
+        ? '$projectRoot\\python\\landmark_detector (6) (1).pth'
+        : '$projectRoot/python/landmark_detector (6) (1).pth';
+    
+    final drowsyModelPath = Platform.isWindows
+        ? '$projectRoot\\python\\drowsiness_classifier (5) (1).pkl'
+        : '$projectRoot/python/drowsiness_classifier (5) (1).pkl';
 
-      _monitorProcess = await Process.start(
-        'python',
-        [scriptPath, '--model', modelPath, '--size', '128', '--camera', '0'],
-        runInShell: true,
-        mode: ProcessStartMode.normal,
-      );
+    // Use `py` on Windows (Python launcher), `python` elsewhere
+    final pythonExe = Platform.isWindows ? 'py' : 'python';
+
+    _monitorProcess = await Process.start(
+      pythonExe,
+      [
+        scriptPath,
+        '--landmark-model', landmarkModelPath,
+        '--drowsy-model', drowsyModelPath,
+        '--camera', '0'
+      ],
+      runInShell: true,
+      mode: ProcessStartMode.normal,
+    );
 
       // Listen to stdout lines (JSON stats)
       _monitorProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {

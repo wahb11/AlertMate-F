@@ -1,7 +1,10 @@
+// Legacy in-memory auth service kept for reference only.
+// Not used in the current Flutter + Firebase implementation.
+// (Implementation commented out to avoid conflicts with the new User model.)
+/*
 import '../models/user.dart';
 
 class AuthService {
-  // Separate user lists for each role
   static final Map<String, List<User>> _usersByRole = {
     'driver': [],
     'passenger': [],
@@ -17,19 +20,16 @@ class AuthService {
     required String password,
     required String role,
   }) {
-    // Check if user already exists for this specific role
     bool userExists = _usersByRole[role]!.any((user) => user.email == email);
-    if (userExists) {
-      return false;
-    }
+    if (userExists) return false;
 
-    // Create new user for this role
     _usersByRole[role]!.add(User(
+      id: 'local-${DateTime.now().millisecondsSinceEpoch}',
       firstName: firstName,
       lastName: lastName,
       email: email,
       phone: phone,
-      password: password,
+      role: role,
     ));
     return true;
   }
@@ -41,7 +41,7 @@ class AuthService {
   }) {
     try {
       return _usersByRole[role]!.firstWhere(
-            (user) => user.email == email && user.password == password,
+        (user) => user.email == email,
       );
     } catch (e) {
       return null;
@@ -55,3 +55,4 @@ class AuthService {
     return _usersByRole[role]!.any((user) => user.email == email);
   }
 }
+*/

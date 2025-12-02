@@ -48,6 +48,7 @@ class DefaultFirebaseOptions {
     authDomain: 'alertmate-26d10.firebaseapp.com',
     storageBucket: 'alertmate-26d10.firebasestorage.app',
     measurementId: 'G-667LR8YYNP',
+    databaseURL: 'https://alertmate-26d10-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -56,6 +57,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '751235115727',
     projectId: 'alertmate-26d10',
     storageBucket: 'alertmate-26d10.firebasestorage.app',
+    databaseURL: 'https://alertmate-26d10-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -65,6 +67,7 @@ class DefaultFirebaseOptions {
     projectId: 'alertmate-26d10',
     storageBucket: 'alertmate-26d10.firebasestorage.app',
     iosBundleId: 'com.example.alertMate',
+    databaseURL: 'https://alertmate-26d10-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -74,6 +77,7 @@ class DefaultFirebaseOptions {
     projectId: 'alertmate-26d10',
     storageBucket: 'alertmate-26d10.firebasestorage.app',
     iosBundleId: 'com.example.alertMate',
+    databaseURL: 'https://alertmate-26d10-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -84,5 +88,6 @@ class DefaultFirebaseOptions {
     authDomain: 'alertmate-26d10.firebaseapp.com',
     storageBucket: 'alertmate-26d10.firebasestorage.app',
     measurementId: 'G-NLB4X5Q9RJ',
+    databaseURL: 'https://alertmate-26d10-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 }
