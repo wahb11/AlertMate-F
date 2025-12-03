@@ -3,6 +3,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/user.dart';
 import '../models/vehicle.dart';
 import '../models/emergency_contact.dart';
@@ -28,14 +31,16 @@ class _DriverDashboardState extends State<DriverDashboard>
   int _selectedIndex = 0;
   int _selectedTab = 0;
   bool _isMonitoring = false;
+  bool _isCameraTesting = false; // kept only to satisfy legacy Camera Test widget, not used in main UI
   Process? _monitorProcess;
-  bool _isCameraTesting = false;
+  WebSocketChannel? _channel;
   double _alertness = 82.0;
   double _ear = 0.0;
   double _mar = 0.0;
   double _eyeClosurePercentage = 0.0;
   Timer? _updateTimer;
   final Random _random = Random();
+  Uint8List? _cameraFrameBytes;
   
   Vehicle? _assignedVehicle;
   final VehicleService _vehicleService = VehicleService();
@@ -102,45 +107,104 @@ class _DriverDashboardState extends State<DriverDashboard>
     super.dispose();
   }
 
+  String _getWebSocketUrl() {
+    // Web: use browser's localhost (or change to your server IP/domain if hosting separately)
+    if (kIsWeb) {
+      return 'ws://localhost:8000/ws/monitor';
+    }
+
+    // Mobile / desktop platforms
+    if (Platform.isAndroid) {
+      // Android emulator: 10.0.2.2 points to host machine
+      // For physical device, replace with your computer's LAN IP (e.g. ws://192.168.1.50:8000/ws/monitor)
+      return 'ws://10.0.2.2:8000/ws/monitor';
+    }
+
+    // iOS simulator, desktop, etc.
+    return 'ws://localhost:8000/ws/monitor';
+  }
+
   void _startMonitoring() async {
     final driverId = widget.user.id;
     if (driverId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot start monitoring: driver ID is missing')),
-      );
+      // Silently ignore if driver ID is missing; you can add a visual indicator in the UI instead of a SnackBar
       return;
     }
 
     // Start Firebase session
-    _currentSessionId = await _monitoringService.startMonitoringSession(driverId);
-    
+    _currentSessionId =
+        await _monitoringService.startMonitoringSession(driverId);
+
+    // Mark monitoring active – this drives stats + live camera feed
     setState(() {
       _isMonitoring = true;
     });
 
-    // Desktop-only integration
-    // Desktop-only integration - check for web first
-    bool isDesktop = false;
+    // Connect to FastAPI WebSocket
     try {
-      isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
-    } catch (e) {
-      // Platform check not supported (web environment)
-      isDesktop = false;
-    }
+      final wsUrl = _getWebSocketUrl();
+      print('🔌 Connecting to FastAPI server at $wsUrl...');
+      _channel = WebSocketChannel.connect(
+        Uri.parse(wsUrl),
+      );
+      
+      print('✅ Connected! Listening for data...');
+      
+      _channel!.stream.listen(
+        (message) {
+          try {
+            final data = json.decode(message) as Map<String, dynamic>;
+            
+            if (data.containsKey('error')) {
+              print('❌ Error from server: ${data['error']}');
+              return;
+            }
+            
+            if (data.containsKey('status')) {
+              print('ℹ️ Status: ${data['status']}');
+              return;
+            }
+            
+            // Update UI with real stats from your models
+            if (mounted) {
+              setState(() {
+                _alertness =
+                    (data['alertness'] as num?)?.toDouble() ?? _alertness;
+                _ear = (data['ear'] as num?)?.toDouble() ?? _ear;
+                _mar = (data['mar'] as num?)?.toDouble() ?? _mar;
+                _eyeClosurePercentage =
+                    (data['eyeClosure'] as num?)?.toDouble() ??
+                        _eyeClosurePercentage;
 
-    if (isDesktop) {
-      _launchPythonMonitor();
-    } else {
-      // Fallback: mock stats on mobile/web
-      _updateTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-        setState(() {
-          _alertness = 70 + _random.nextDouble() * 25;
-          _ear = _random.nextDouble() * 0.3;
-          _mar = _random.nextDouble() * 0.3;
-          _eyeClosurePercentage = _random.nextDouble() * 30;
-        });
-      });
+                // Decode and store camera frame if available (backend already throttles to 1s)
+                if (data.containsKey('frame') && data['frame'] != null) {
+                  try {
+                    final frameBase64 = data['frame'] as String;
+                    _cameraFrameBytes = base64Decode(frameBase64);
+                  } catch (e) {
+                    print('❌ Error decoding frame: $e');
+                  }
+                }
+              });
+
+              // Previously this showed a SnackBar for every drowsiness alert; removed to avoid persistent bottom popups.
+            }
+          } catch (e) {
+            print('❌ Error parsing message: $e');
+          }
+        },
+        onError: (error) {
+          print('❌ WebSocket error: $error');
+        },
+        onDone: () {
+          print('🔌 WebSocket connection closed');
+        },
+      );
+      
+    } catch (e) {
+      print('❌ Failed to connect to server: $e');
     }
+    
     // Update Firebase every second
     _statsUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _monitoringService.updateRealtimeStats(
@@ -153,16 +217,24 @@ class _DriverDashboardState extends State<DriverDashboard>
       );
     });
   }
-
   void _stopMonitoring() async {
     final driverId = widget.user.id;
 
     setState(() {
       _isMonitoring = false;
     });
+    
     _updateTimer?.cancel();
     _statsUpdateTimer?.cancel();
-    _killPythonMonitor();
+    
+    // Close WebSocket connection
+    _channel?.sink.close();
+    _channel = null;
+    
+    // Clear camera frame
+    setState(() {
+      _cameraFrameBytes = null;
+    });
     
     // End Firebase session
     if (_currentSessionId != null && driverId != null) {
@@ -170,7 +242,6 @@ class _DriverDashboardState extends State<DriverDashboard>
       _currentSessionId = null;
     }
   }
-
  Future<void> _launchPythonMonitor() async {
   try {
     final projectRoot = Directory.current.path;
@@ -725,8 +796,6 @@ class _DriverDashboardState extends State<DriverDashboard>
           _buildTab('Live Monitoring', 0),
           const SizedBox(width: 8),
           _buildTab('Alert Settings', 1),
-          const SizedBox(width: 8),
-          _buildTab('Camera Test', 2),
         ],
       ),
     );
@@ -779,30 +848,13 @@ class _DriverDashboardState extends State<DriverDashboard>
         return _buildLiveMonitoringTab(isSmallScreen);
       case 1:
         return _buildAlertSettingsTab();
-      case 2:
-        return _buildCameraTestTab();
       default:
         return _buildLiveMonitoringTab(isSmallScreen);
     }
   }
 
   Widget _buildLiveMonitoringTab(bool isSmallScreen) {
-    return isSmallScreen
-        ? Column(
-      children: [
-        _buildRealtimeAlertness(),
-        const SizedBox(height: 20),
-        _buildEyeClosureDetection(),
-      ],
-    )
-        : Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _buildRealtimeAlertness()),
-        const SizedBox(width: 20),
-        Expanded(child: _buildEyeClosureDetection()),
-      ],
-    );
+    return _buildRealtimeAlertness();
   }
 
   Widget _buildAlertSettingsTab() {
@@ -1080,7 +1132,11 @@ class _DriverDashboardState extends State<DriverDashboard>
                 ),
               ),
               Text(
-                _isCameraTesting ? 'Testing...' : 'Ready to test',
+                _isMonitoring
+                    ? 'Monitoring active'
+                    : _isCameraTesting
+                        ? 'Testing...'
+                        : 'Ready to test',
                 style: const TextStyle(
                   fontSize: 16,
                   color: Colors.black54,
@@ -1089,31 +1145,60 @@ class _DriverDashboardState extends State<DriverDashboard>
             ],
           ),
           const SizedBox(height: 24),
-          Container(
-            height: 480,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
-            ),
-            child: Center(
-              child: _isCameraTesting
-                  ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Camera is testing...',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                  ),
-                ],
-              )
-                  : Text(
-                'Click "Test Camera" to start',
-                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _cameraFrameBytes != null && (_isMonitoring || _isCameraTesting)
+                    ? Image.memory(
+                        _cameraFrameBytes!,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Error loading camera feed',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : Center(
+                        child: _isCameraTesting
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Camera is testing...',
+                                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                'Click "Test Camera" to start',
+                                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                              ),
+                      ),
               ),
             ),
           ),
@@ -1149,24 +1234,59 @@ class _DriverDashboardState extends State<DriverDashboard>
             ),
           ),
           const SizedBox(height: 24),
-          Container(
-            height: 420,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.videocam_off, size: 64, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Camera feed will appear here',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  ),
-                ],
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _cameraFrameBytes != null && _isMonitoring
+                    ? Image.memory(
+                        _cameraFrameBytes!,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Error loading camera feed',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isMonitoring ? Icons.videocam : Icons.videocam_off,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _isMonitoring
+                                  ? 'Waiting for camera feed...'
+                                  : 'Camera feed will appear here',
+                              style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
               ),
             ),
           ),
