@@ -233,26 +233,84 @@ void initState() {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Row(
-        children: [
-          AppSidebar(
-            role: 'owner',
-            user: widget.user is User ? widget.user : null,
-            selectedIndex: _selectedIndex,
-            onMenuItemTap: (index) => setState(() => _selectedIndex = index),
-            menuItems: const [
-              MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
-              MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
-            ],
-            accentColor: AppColors.primary,
-            accentLightColor: AppColors.primaryLight,
+      drawer: isMobile ? _buildMobileDrawer() : null,
+      appBar: isMobile ? AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.black87),
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+        title: Text(
+          'Fleet Management',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
           ),
-          Expanded(
-            child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.primary,
+              child: Text(
+                widget.user.firstName[0].toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
         ],
+      ) : null,
+      body: isMobile
+          ? _selectedIndex == 0 ? _buildDashboard() : _buildEmergency()
+          : Row(
+              children: [
+                AppSidebar(
+                  role: 'owner',
+                  user: widget.user is User ? widget.user : null,
+                  selectedIndex: _selectedIndex,
+                  onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+                  menuItems: const [
+                    MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+                    MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+                  ],
+                  accentColor: AppColors.primary,
+                  accentLightColor: AppColors.primaryLight,
+                ),
+                Expanded(
+                  child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMobileDrawer() {
+    return Drawer(
+      child: AppSidebar(
+        role: 'owner',
+        user: widget.user is User ? widget.user : null,
+        selectedIndex: _selectedIndex,
+        onMenuItemTap: (index) {
+          setState(() => _selectedIndex = index);
+          Navigator.pop(context);
+        },
+        menuItems: const [
+          MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+          MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+        ],
+        accentColor: AppColors.primary,
+        accentLightColor: AppColors.primaryLight,
       ),
     );
   }
@@ -260,33 +318,34 @@ void initState() {
   Widget _buildDashboard() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < 768;
+        final isMobile = MediaQuery.of(context).size.width < 768;
+        final isTablet = MediaQuery.of(context).size.width < 1024 && !isMobile;
         return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
+            padding: EdgeInsets.all(isMobile ? 16.0 : isTablet ? 24.0 : 40.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStaggeredItem(
+                if (!isMobile) _buildStaggeredItem(
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Fleet Management',
                             style: TextStyle(
-                              fontSize: 32,
+                              fontSize: isMobile ? 24 : isTablet ? 28 : 32,
                               fontWeight: FontWeight.bold,
                               color: Colors.black87,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          SizedBox(height: isMobile ? 6 : 8),
                           Text(
                             'Monitor and manage your vehicle fleet',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: isMobile ? 13 : isTablet ? 14 : 16,
                               color: Colors.black54,
                             ),
                           ),
@@ -297,31 +356,35 @@ void initState() {
                           children: [
                             ElevatedButton.icon(
                               onPressed: _showAddVehicleDialog,
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add Vehicle'),
+                              icon: Icon(Icons.add, size: isTablet ? 16 : 18),
+                              label: Text('Add Vehicle', style: TextStyle(fontSize: isTablet ? 13 : 14)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: isTablet ? 16 : 20,
+                                    vertical: isTablet ? 12 : 16),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: isTablet ? 8 : 12),
                             ElevatedButton.icon(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Export report'))
                                 );
                               },
-                              icon: const Icon(Icons.download, size: 18),
-                              label: const Text('Export Report'),
+                              icon: Icon(Icons.download, size: isTablet ? 16 : 18),
+                              label: Text('Export Report', style: TextStyle(fontSize: isTablet ? 13 : 14)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: Colors.black87,
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: isTablet ? 16 : 20,
+                                    vertical: isTablet ? 12 : 16),
                                 elevation: 0,
                                 side: BorderSide(color: Colors.grey[300]!),
                                 shape: RoundedRectangleBorder(
@@ -329,14 +392,14 @@ void initState() {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: isTablet ? 8 : 12),
                             IconButton(
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text('Open settings'))
                                 );
                               },
-                              icon: const Icon(Icons.settings),
+                              icon: Icon(Icons.settings, size: isTablet ? 20 : 24),
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 side: BorderSide(color: Colors.grey[300]!),
@@ -348,11 +411,33 @@ void initState() {
                   ),
                   0,
                 ),
-               const SizedBox(height: 32),
+                if (isMobile) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _showAddVehicleDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Vehicle'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                SizedBox(height: isMobile ? 24 : 32),
 StreamBuilder<List<Vehicle>>(
   stream: _vehicleService.getVehiclesByOwnerStream(widget.user.id),
   builder: (context, snapshot) {
     final vehicles = snapshot.data ?? [];
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isTablet = MediaQuery.of(context).size.width < 1024 && !isMobile;
     
     return _buildStaggeredItem(
       isMobile
@@ -364,73 +449,129 @@ StreamBuilder<List<Vehicle>>(
                   'Fleet size',
                   Icons.directions_car_outlined,
                   AppColors.primary,
+                  isMobile,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: isMobile ? 12 : 16),
                 _buildStatCard(
                   'Active Drivers',
                   vehicles.where((v) => v.status == 'Active').length.toString(),
                   'Currently driving',
                   Icons.people_outline,
                   AppColors.success,
+                  isMobile,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: isMobile ? 12 : 16),
                 _buildStatCard(
                   'Critical Alerts',
                   vehicles.where((v) => v.status == 'Critical').length.toString(),
                   'Requires attention',
                   Icons.warning_amber_rounded,
                   AppColors.danger,
+                  isMobile,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: isMobile ? 12 : 16),
                 _buildStatCard(
                   'Safety Score',
                   '8.4/10',
                   'Overall performance',
                   Icons.shield_outlined,
                   AppColors.success,
+                  isMobile,
                 ),
               ],
             )
-          : Row(
-              children: [
-                Expanded(child: _buildStatCard(
-                  'Total Vehicles',
-                  vehicles.length.toString(),
-                  'Fleet size',
-                  Icons.directions_car_outlined,
-                  AppColors.primary,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Active Drivers',
-                  vehicles.where((v) => v.status == 'Active').length.toString(),
-                  'Currently driving',
-                  Icons.people_outline,
-                  AppColors.success,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Critical Alerts',
-                  vehicles.where((v) => v.status == 'Critical').length.toString(),
-                  'Requires attention',
-                  Icons.warning_amber_rounded,
-                  AppColors.danger,
-                )),
-                const SizedBox(width: 20),
-                Expanded(child: _buildStatCard(
-                  'Safety Score',
-                  '8.4/10',
-                  'Overall performance',
-                  Icons.shield_outlined,
-                  AppColors.success,
-                )),
-              ],
-            ),
+          : isTablet
+              ? Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _buildStatCard(
+                          'Total Vehicles',
+                          vehicles.length.toString(),
+                          'Fleet size',
+                          Icons.directions_car_outlined,
+                          AppColors.primary,
+                          isMobile,
+                        )),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildStatCard(
+                          'Active Drivers',
+                          vehicles.where((v) => v.status == 'Active').length.toString(),
+                          'Currently driving',
+                          Icons.people_outline,
+                          AppColors.success,
+                          isMobile,
+                        )),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: _buildStatCard(
+                          'Critical Alerts',
+                          vehicles.where((v) => v.status == 'Critical').length.toString(),
+                          'Requires attention',
+                          Icons.warning_amber_rounded,
+                          AppColors.danger,
+                          isMobile,
+                        )),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildStatCard(
+                          'Safety Score',
+                          '8.4/10',
+                          'Overall performance',
+                          Icons.shield_outlined,
+                          AppColors.success,
+                          isMobile,
+                        )),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: _buildStatCard(
+                      'Total Vehicles',
+                      vehicles.length.toString(),
+                      'Fleet size',
+                      Icons.directions_car_outlined,
+                      AppColors.primary,
+                      isMobile,
+                    )),
+                    const SizedBox(width: 20),
+                    Expanded(child: _buildStatCard(
+                      'Active Drivers',
+                      vehicles.where((v) => v.status == 'Active').length.toString(),
+                      'Currently driving',
+                      Icons.people_outline,
+                      AppColors.success,
+                      isMobile,
+                    )),
+                    const SizedBox(width: 20),
+                    Expanded(child: _buildStatCard(
+                      'Critical Alerts',
+                      vehicles.where((v) => v.status == 'Critical').length.toString(),
+                      'Requires attention',
+                      Icons.warning_amber_rounded,
+                      AppColors.danger,
+                      isMobile,
+                    )),
+                    const SizedBox(width: 20),
+                    Expanded(child: _buildStatCard(
+                      'Safety Score',
+                      '8.4/10',
+                      'Overall performance',
+                      Icons.shield_outlined,
+                      AppColors.success,
+                      isMobile,
+                    )),
+                  ],
+                ),
       1,
     );
   },
 ),
-                const SizedBox(height: 32),
+                SizedBox(height: isMobile ? 24 : 32),
                 _buildStaggeredItem(
                   _buildFleetOverview(),
                   2,
@@ -465,9 +606,9 @@ StreamBuilder<List<Vehicle>>(
     );
   }
 
-  Widget _buildStatCard(String title, String value, String subtitle, IconData icon, Color color) {
+  Widget _buildStatCard(String title, String value, String subtitle, IconData icon, Color color, [bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -486,39 +627,39 @@ StreamBuilder<List<Vehicle>>(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(isMobile ? 10 : 12),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(icon, color: color, size: isMobile ? 20 : 24),
               ),
-              Icon(Icons.more_horiz, color: Colors.grey[400]),
+              Icon(Icons.more_horiz, color: Colors.grey[400], size: isMobile ? 18 : 24),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: isMobile ? 16 : 24),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 28,
+            style: TextStyle(
+              fontSize: isMobile ? 22 : 28,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: isMobile ? 13 : 14,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: isMobile ? 2 : 4),
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
               color: color,
               fontWeight: FontWeight.w500,
             ),
@@ -566,8 +707,9 @@ Widget _buildFleetOverview() {
           return matchesSearch && matchesFilter;
         }).toList();
 
+        final isMobile = MediaQuery.of(context).size.width < 768;
         return Container(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(isMobile ? 16 : 28),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -585,19 +727,20 @@ Widget _buildFleetOverview() {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Fleet Overview',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: isMobile ? 16 : 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 250,
-                        child: TextField(
+                  if (!isMobile)
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: isMobile ? double.infinity : 250,
+                          child: TextField(
                           key: const Key('fleet_search_field'),
                            controller: _searchController,
                           decoration: InputDecoration(
@@ -656,33 +799,95 @@ Widget _buildFleetOverview() {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              if (isMobile) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search vehicles...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _showClearButton
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF2196F3), width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: DropdownButton<String>(
+                    value: _statusFilter,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    icon: const Icon(Icons.arrow_drop_down),
+                    items: const [
+                      DropdownMenuItem(value: 'All Status', child: Text('All Status')),
+                      DropdownMenuItem(value: 'Active', child: Text('Active')),
+                      DropdownMenuItem(value: 'Break', child: Text('Break')),
+                      DropdownMenuItem(value: 'Critical', child: Text('Critical')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _statusFilter = value!;
+                      });
+                    },
+                  ),
+                ),
+              ],
+              SizedBox(height: isMobile ? 16 : 16),
             if (_searchController.text.isNotEmpty || _statusFilter != 'All Status')
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: EdgeInsets.only(bottom: isMobile ? 8 : 12),
                   child: Row(
                     children: [
                       Text(
                         'Found ${filteredVehicles.length} vehicle${filteredVehicles.length != 1 ? 's' : ''}',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: isMobile ? 12 : 13,
                           color: Colors.grey[600],
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (_searchController.text.isNotEmpty || _statusFilter != 'All Status') ...[
-  const SizedBox(width: 8),
-  TextButton.icon(
-    onPressed: () {
-      setState(() {
-        _searchController.clear();
-        _statusFilter = 'All Status';
-      });
-    },
-                          icon: const Icon(Icons.clear, size: 16),
-                          label: const Text('Clear filters'),
+                        SizedBox(width: isMobile ? 6 : 8),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _searchController.clear();
+                              _statusFilter = 'All Status';
+                            });
+                          },
+                          icon: Icon(Icons.clear, size: isMobile ? 14 : 16),
+                          label: Text('Clear filters', style: TextStyle(fontSize: isMobile ? 12 : 14)),
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: isMobile ? 6 : 8,
+                                vertical: isMobile ? 2 : 4),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
@@ -691,85 +896,92 @@ Widget _buildFleetOverview() {
                     ],
                   ),
                 ),
-              const SizedBox(height: 8),
+              SizedBox(height: isMobile ? 8 : 8),
              if (filteredVehicles.isEmpty)
-  Center(
-    child: Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        children: [
-          Icon(
-            _searchController.text.isNotEmpty || _statusFilter != 'All Status'
-                ? Icons.search_off
-                : Icons.directions_car_outlined,
-            size: 48,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _searchController.text.isNotEmpty || _statusFilter != 'All Status'
-                ? 'No vehicles match your search'
-                : 'No vehicles found',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ), // ✅ Remove the extra ), after this line
-          if (_searchController.text.isNotEmpty || _statusFilter != 'All Status') ...[
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _searchController.clear();
-                  _statusFilter = 'All Status';
-                });
-              },
-              child: const Text('Clear filters'),
-            ),
-          ],
-        ],
-      ),
-    ),
-  )
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minWidth: MediaQuery.of(context).size.width - 160,
-                    ),
-                    child: Table(
-                      columnWidths: const {
-                        0: FixedColumnWidth(120),
-                        1: FixedColumnWidth(150),
-                        2: FixedColumnWidth(100),
-                        3: FixedColumnWidth(150),
-                        4: FixedColumnWidth(150),
-                        5: FixedColumnWidth(120),
-                        6: FixedColumnWidth(100),
-                      },
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(isMobile ? 20 : 40),
+                    child: Column(
                       children: [
-                        TableRow(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          children: [
-                            _buildTableHeader('License Plate'),
-                            _buildTableHeader('Driver'),
-                            _buildTableHeader('Status'),
-                            _buildTableHeader('Alertness'),
-                            _buildTableHeader('Location'),
-                            _buildTableHeader('Last Update'),
-                            _buildTableHeader('Actions'),
-                          ],
+                        Icon(
+                          _searchController.text.isNotEmpty || _statusFilter != 'All Status'
+                              ? Icons.search_off
+                              : Icons.directions_car_outlined,
+                          size: isMobile ? 40 : 48,
+                          color: Colors.grey[400],
                         ),
-                        ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle)),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        Text(
+                          _searchController.text.isNotEmpty || _statusFilter != 'All Status'
+                              ? 'No vehicles match your search'
+                              : 'No vehicles found',
+                          style: TextStyle(
+                            fontSize: isMobile ? 14 : 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (_searchController.text.isNotEmpty || _statusFilter != 'All Status') ...[
+                          SizedBox(height: isMobile ? 6 : 8),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _statusFilter = 'All Status';
+                              });
+                            },
+                            child: Text('Clear filters', style: TextStyle(fontSize: isMobile ? 13 : 14)),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ),
+                )
+              else
+                isMobile
+                    ? Column(
+                        children: filteredVehicles.map((vehicle) => Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _buildMobileVehicleCard(vehicle),
+                            )).toList(),
+                      )
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: MediaQuery.of(context).size.width - (isMobile ? 32 : 160),
+                          ),
+                          child: Table(
+                            columnWidths: const {
+                              0: FixedColumnWidth(120),
+                              1: FixedColumnWidth(150),
+                              2: FixedColumnWidth(100),
+                              3: FixedColumnWidth(150),
+                              4: FixedColumnWidth(150),
+                              5: FixedColumnWidth(120),
+                              6: FixedColumnWidth(100),
+                            },
+                            children: [
+                              TableRow(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                children: [
+                                  _buildTableHeader('License Plate', isMobile),
+                                  _buildTableHeader('Driver', isMobile),
+                                  _buildTableHeader('Status', isMobile),
+                                  _buildTableHeader('Alertness', isMobile),
+                                  _buildTableHeader('Location', isMobile),
+                                  _buildTableHeader('Last Update', isMobile),
+                                  _buildTableHeader('Actions', isMobile),
+                                ],
+                              ),
+                              ...filteredVehicles.map((vehicle) => _buildVehicleRow(vehicle, isMobile)),
+                            ],
+                          ),
+                        ),
+                      ),
             ],
           ),
         );
@@ -777,76 +989,111 @@ Widget _buildFleetOverview() {
     );
   }
     Widget _buildEmergency() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Emergency Services',
               style: TextStyle(
-                fontSize: 32,
+                fontSize: isMobile ? 24 : 32,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: isMobile ? 6 : 8),
+            Text(
               'Quick access to emergency services and contacts',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: isMobile ? 13 : 16,
                 color: Colors.black54,
               ),
             ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildEmergencyServiceCard(
-                    'Police',
-                    '15',
-                    Icons.local_police_outlined,
-                    Colors.blue[700]!,
-                    Colors.blue[50]!,
+            SizedBox(height: isMobile ? 24 : 32),
+            isMobile
+                ? Column(
+                    children: [
+                      _buildEmergencyServiceCard(
+                        'Police',
+                        '15',
+                        Icons.local_police_outlined,
+                        Colors.blue[700]!,
+                        Colors.blue[50]!,
+                        isMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard(
+                        'Ambulance',
+                        '1122',
+                        Icons.local_hospital_outlined,
+                        Colors.red[700]!,
+                        Colors.red[50]!,
+                        isMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard(
+                        'Fire Department',
+                        '16',
+                        Icons.local_fire_department_outlined,
+                        Colors.orange[700]!,
+                        Colors.orange[50]!,
+                        isMobile,
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Expanded(
+                        child: _buildEmergencyServiceCard(
+                          'Police',
+                          '15',
+                          Icons.local_police_outlined,
+                          Colors.blue[700]!,
+                          Colors.blue[50]!,
+                          isMobile,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildEmergencyServiceCard(
+                          'Ambulance',
+                          '1122',
+                          Icons.local_hospital_outlined,
+                          Colors.red[700]!,
+                          Colors.red[50]!,
+                          isMobile,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildEmergencyServiceCard(
+                          'Fire Department',
+                          '16',
+                          Icons.local_fire_department_outlined,
+                          Colors.orange[700]!,
+                          Colors.orange[50]!,
+                          isMobile,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: _buildEmergencyServiceCard(
-                    'Ambulance',
-                    '1122',
-                    Icons.local_hospital_outlined,
-                    Colors.red[700]!,
-                    Colors.red[50]!,
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: _buildEmergencyServiceCard(
-                    'Fire Department',
-                    '16',
-                    Icons.local_fire_department_outlined,
-                    Colors.orange[700]!,
-                    Colors.orange[50]!,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            _buildEmergencyContactsTable(),
+            SizedBox(height: isMobile ? 24 : 32),
+            _buildEmergencyContactsTable(isMobile),
           ],
         ),
       ),
     );
   }
-  Widget _buildEmergencyContactsTable() {
+  Widget _buildEmergencyContactsTable([bool isMobile = false]) {
     return StreamBuilder<List<EmergencyContact>>(
       stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -858,7 +1105,7 @@ Widget _buildFleetOverview() {
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -871,7 +1118,7 @@ Widget _buildFleetOverview() {
         final contacts = snapshot.data ?? [];
 
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -883,10 +1130,10 @@ Widget _buildFleetOverview() {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Fleet Contacts',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: isMobile ? 16 : 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
@@ -895,13 +1142,14 @@ Widget _buildFleetOverview() {
                     onPressed: () {
                       _showAddContactDialog();
                     },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Contact'),
+                    icon: Icon(Icons.add, size: isMobile ? 16 : 18),
+                    label: Text('Add Contact', style: TextStyle(fontSize: isMobile ? 13 : 14)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 12 : 20,
+                          vertical: isMobile ? 10 : 12),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -910,36 +1158,56 @@ Widget _buildFleetOverview() {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1.5),
-                  1: FlexColumnWidth(1.2),
-                  2: FlexColumnWidth(1.8),
-                  3: FlexColumnWidth(1.0),
-                  4: FlexColumnWidth(1.0),
-                  5: FlexColumnWidth(0.8),
-                  6: FlexColumnWidth(1.0),
-                },
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
+              SizedBox(height: isMobile ? 16 : 24),
+              isMobile
+                  ? contacts.isEmpty
+                      ? Padding(
+                          padding: EdgeInsets.all(isMobile ? 20 : 40),
+                          child: Center(
+                            child: Text(
+                              'No emergency contacts added yet',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: contacts.map((contact) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildMobileContactCard(contact),
+                              )).toList(),
+                        )
+                  : Table(
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.5),
+                        1: FlexColumnWidth(1.2),
+                        2: FlexColumnWidth(1.8),
+                        3: FlexColumnWidth(1.0),
+                        4: FlexColumnWidth(1.0),
+                        5: FlexColumnWidth(0.8),
+                        6: FlexColumnWidth(1.0),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          children: [
+                            _buildTableHeader('Name', isMobile),
+                            _buildTableHeader('Relationship', isMobile),
+                            _buildTableHeader('Contact', isMobile),
+                            _buildTableHeader('Priority', isMobile),
+                            _buildTableHeader('Methods', isMobile),
+                            _buildTableHeader('Status', isMobile),
+                            _buildTableHeader('Actions', isMobile),
+                          ],
+                        ),
+                        ...contacts.map((contact) => _buildEmergencyContactRow(contact, isMobile)),
+                      ],
                     ),
-                    children: [
-                      _buildTableHeader('Name'),
-                      _buildTableHeader('Relationship'),
-                      _buildTableHeader('Contact'),
-                      _buildTableHeader('Priority'),
-                      _buildTableHeader('Methods'),
-                      _buildTableHeader('Status'),
-                      _buildTableHeader('Actions'),
-                    ],
-                  ),
-                  ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
-                ],
-              ),
             ],
           ),
         );
@@ -947,9 +1215,9 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor) {
+  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor, [bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -965,27 +1233,27 @@ Widget _buildFleetOverview() {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(isMobile ? 10 : 12),
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: isMobile ? 20 : 24),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: isMobile ? 16 : 24),
           Text(
             number,
-            style: const TextStyle(
-              fontSize: 28,
+            style: TextStyle(
+              fontSize: isMobile ? 24 : 28,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: isMobile ? 13 : 14,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
@@ -1322,40 +1590,113 @@ Widget _buildFleetOverview() {
     );
   }
 
-  TableRow _buildEmergencyContactRow(EmergencyContact contact) {
+  Widget _buildMobileContactCard(EmergencyContact contact) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  contact.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              _buildContactActionsCell(contact, true),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            contact.relationship,
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.phone, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(contact.phone, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.email, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  contact.email,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPriorityBadgeCell(contact.priority, true),
+              ),
+              const SizedBox(width: 8),
+              _buildStatusToggleCell(contact, true),
+              const SizedBox(width: 8),
+              _buildMethodsCell(contact.methods, true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  TableRow _buildEmergencyContactRow(EmergencyContact contact, [bool isMobile = false]) {
     return TableRow(
       children: [
-        _buildTableCell(contact.name),
-        _buildTableCell(contact.relationship),
-        _buildContactInfoCell(contact.phone, contact.email),
-        _buildPriorityBadgeCell(contact.priority),
-        _buildMethodsCell(contact.methods),
-        _buildStatusToggleCell(contact),
-        _buildContactActionsCell(contact),
+        _buildTableCell(contact.name, isMobile),
+        _buildTableCell(contact.relationship, isMobile),
+        _buildContactInfoCell(contact.phone, contact.email, isMobile),
+        _buildPriorityBadgeCell(contact.priority, isMobile),
+        _buildMethodsCell(contact.methods, isMobile),
+        _buildStatusToggleCell(contact, isMobile),
+        _buildContactActionsCell(contact, isMobile),
       ],
     );
   }
 
-  Widget _buildContactInfoCell(String phone, String email) {
+  Widget _buildContactInfoCell(String phone, String email, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 8 : 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             phone,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 14,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
           ),
           if (email.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: isMobile ? 2 : 4),
             Text(
               email,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: isMobile ? 11 : 12,
                 color: Colors.grey[600],
               ),
             ),
@@ -1365,20 +1706,24 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildPriorityBadgeCell(String priority) {
+  Widget _buildPriorityBadgeCell(String priority, [bool isMobile = false]) {
     final isPrimary = priority == 'primary';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 12,
+            vertical: isMobile ? 4 : 6),
         decoration: BoxDecoration(
           color: isPrimary ? Colors.red : const Color(0xFFFF6F00),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           priority,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: isMobile ? 10 : 12,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -1388,27 +1733,32 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildMethodsCell(List<dynamic> methods) {
+  Widget _buildMethodsCell(List<dynamic> methods, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (methods.contains('call'))
-            Icon(Icons.phone, size: 18, color: Colors.green[600]),
-          if (methods.contains('call')) const SizedBox(width: 6),
+            Icon(Icons.phone, size: isMobile ? 16 : 18, color: Colors.green[600]),
+          if (methods.contains('call')) SizedBox(width: isMobile ? 4 : 6),
           if (methods.contains('sms'))
-            Icon(Icons.message, size: 18, color: Colors.blue[600]),
-          if (methods.contains('sms')) const SizedBox(width: 6),
+            Icon(Icons.message, size: isMobile ? 16 : 18, color: Colors.blue[600]),
+          if (methods.contains('sms')) SizedBox(width: isMobile ? 4 : 6),
           if (methods.contains('email'))
-            Icon(Icons.email, size: 18, color: Colors.grey[600]),
+            Icon(Icons.email, size: isMobile ? 16 : 18, color: Colors.grey[600]),
         ],
       ),
     );
   }
 
-  Widget _buildStatusToggleCell(EmergencyContact contact) {
+  Widget _buildStatusToggleCell(EmergencyContact contact, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Switch(
         value: contact.enabled,
         onChanged: (value) async {
@@ -1427,22 +1777,25 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildContactActionsCell(EmergencyContact contact) {
+  Widget _buildContactActionsCell(EmergencyContact contact, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 8,
+          vertical: isMobile ? 0 : 12),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 20),
+            icon: Icon(Icons.edit_outlined, size: isMobile ? 18 : 20),
             onPressed: () {
               _showEditContactDialog(contact);
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 4 : 8),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
+            icon: Icon(Icons.delete_outline, size: isMobile ? 18 : 20),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
@@ -1487,13 +1840,118 @@ Widget _buildFleetOverview() {
   }
   
   // Helper methods for fleet overview table
-  Widget _buildTableHeader(String text) {
+  Widget _buildMobileVehicleCard(Vehicle vehicle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  vehicle.licensePlate,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              _buildStatusBadge(vehicle.status, true),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.person, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  vehicle.driverName ?? 'Unassigned',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.location_on, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  vehicle.location ?? 'Unknown',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Alertness: ',
+                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              ),
+              Text(
+                '${vehicle.alertness}%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: vehicle.alertness / 100,
+                    minHeight: 6,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      vehicle.alertness >= 80 ? AppColors.success :
+                      vehicle.alertness >= 70 ? AppColors.warning : AppColors.danger,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                vehicle.lastUpdate ?? 'N/A',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              const Spacer(),
+              _buildActionsCell(true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeader(String text, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 8 : 12),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 13,
+        style: TextStyle(
+          fontSize: isMobile ? 11 : 13,
           fontWeight: FontWeight.w600,
           color: Colors.black54,
         ),
@@ -1501,34 +1959,36 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildTableCell(String text) {
+  Widget _buildTableCell(String text, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 12 : 16),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 14,
+        style: TextStyle(
+          fontSize: isMobile ? 12 : 14,
           color: Colors.black87,
         ),
       ),
     );
   }
 
-  TableRow _buildVehicleRow(Vehicle vehicle) {
+  TableRow _buildVehicleRow(Vehicle vehicle, [bool isMobile = false]) {
     return TableRow(
       children: [
-        _buildTableCell(vehicle.licensePlate),
-        _buildTableCell(vehicle.driverName ?? 'Unassigned'),
-        _buildStatusBadge(vehicle.status),
-        _buildAlertnessCell(vehicle.alertness),
-        _buildTableCell(vehicle.location ?? 'Unknown'),
-        _buildTableCell(vehicle.lastUpdate ?? 'N/A'),
-        _buildActionsCell(),
+        _buildTableCell(vehicle.licensePlate, isMobile),
+        _buildTableCell(vehicle.driverName ?? 'Unassigned', isMobile),
+        _buildStatusBadge(vehicle.status, isMobile),
+        _buildAlertnessCell(vehicle.alertness, isMobile),
+        _buildTableCell(vehicle.location ?? 'Unknown', isMobile),
+        _buildTableCell(vehicle.lastUpdate ?? 'N/A', isMobile),
+        _buildActionsCell(isMobile),
       ],
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, [bool isMobile = false]) {
     Color color;
     switch (status) {
       case 'Active':
@@ -1545,17 +2005,21 @@ Widget _buildFleetOverview() {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 12,
+            vertical: isMobile ? 4 : 6),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           status,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: isMobile ? 10 : 12,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -1565,26 +2029,28 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildAlertnessCell(int alertnessValue) {
+  Widget _buildAlertnessCell(int alertnessValue, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 8 : 12),
       child: Row(
         children: [
           Text(
             '$alertnessValue%',
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 6 : 8),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: alertnessValue / 100,
-                minHeight: 6,
+                minHeight: isMobile ? 5 : 6,
                 backgroundColor: Colors.grey[200],
                 valueColor: AlwaysStoppedAnimation<Color>(
                   alertnessValue >= 80 ? AppColors.success :
@@ -1598,13 +2064,16 @@ Widget _buildFleetOverview() {
     );
   }
 
-  Widget _buildActionsCell() {
+  Widget _buildActionsCell([bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 8,
+          vertical: isMobile ? 0 : 12),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            icon: const Icon(Icons.visibility_outlined, size: 20),
+            icon: Icon(Icons.visibility_outlined, size: isMobile ? 18 : 20),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('View vehicle details'))
@@ -1613,9 +2082,9 @@ Widget _buildFleetOverview() {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 4 : 8),
           IconButton(
-            icon: const Icon(Icons.phone_outlined, size: 20),
+            icon: Icon(Icons.phone_outlined, size: isMobile ? 18 : 20),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Calling driver...'))
