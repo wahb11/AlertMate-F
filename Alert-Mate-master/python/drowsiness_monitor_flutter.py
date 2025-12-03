@@ -213,11 +213,21 @@ def main():
             
             if not ret:
                 break
+
+   
+            cv2.imshow("Camera Preview", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                 break
+    
+
             
             frame_count += 1
             current_time = time.time()
             
             try:
+                # Initialize drowsiness reason at start of each loop
+                drowsiness_reason = "alert"
+                
                 # Predict landmarks
                 landmarks = predict_landmarks(landmark_model, frame)
                 
@@ -275,13 +285,13 @@ def main():
                 
                 if (current_time - last_output_time >= 0.5) or is_drowsy:
                     output = {
-                        "alertness": round(alertness, 2),
-                        "ear": round(avg_ear, 3),
-                        "mar": round(mar, 3),
-                        "eyeClosure": round(eye_closure, 2),
-                        "isDrowsy": is_drowsy,
+                        "alertness": float(round(alertness, 2)),
+                        "ear": float(round(avg_ear, 3)),
+                        "mar": float(round(mar, 3)),
+                        "eyeClosure": float(round(eye_closure, 2)),
+                        "isDrowsy": bool(is_drowsy),
                         "reason": drowsiness_reason,
-                        "drowsyCounter": drowsy_counter,
+                        "drowsyCounter": int(drowsy_counter),
                         "timestamp": int(current_time * 1000)
                     }
                     print(json.dumps(output), flush=True)

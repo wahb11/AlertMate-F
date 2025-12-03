@@ -119,7 +119,16 @@ class _DriverDashboardState extends State<DriverDashboard>
     });
 
     // Desktop-only integration
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    // Desktop-only integration - check for web first
+    bool isDesktop = false;
+    try {
+      isDesktop = Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+    } catch (e) {
+      // Platform check not supported (web environment)
+      isDesktop = false;
+    }
+
+    if (isDesktop) {
       _launchPythonMonitor();
     } else {
       // Fallback: mock stats on mobile/web
@@ -132,7 +141,6 @@ class _DriverDashboardState extends State<DriverDashboard>
         });
       });
     }
-    
     // Update Firebase every second
     _statsUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _monitoringService.updateRealtimeStats(
@@ -172,20 +180,24 @@ class _DriverDashboardState extends State<DriverDashboard>
         : '$projectRoot/python/drowsiness_monitor_flutter.py';
     
     // Models in same python folder
-    // NOTE: make sure these file names match your actual files in the python/ folder
     final landmarkModelPath = Platform.isWindows
-        ? '$projectRoot\\python\\landmark_detector (6) (1).pth'
-        : '$projectRoot/python/landmark_detector (6) (1).pth';
+        ? '$projectRoot\\python\\landmark_detector.pth'
+        : '$projectRoot/python/landmark_detector.pth';
     
     final drowsyModelPath = Platform.isWindows
-        ? '$projectRoot\\python\\drowsiness_classifier (5) (1).pkl'
-        : '$projectRoot/python/drowsiness_classifier (5) (1).pkl';
+        ? '$projectRoot\\python\\drowsiness_classifier.pkl'
+        : '$projectRoot/python/drowsiness_classifier.pkl';
 
-    // Use `py` on Windows (Python launcher), `python` elsewhere
-    final pythonExe = Platform.isWindows ? 'py' : 'python';
+    print('🔍 Launching Python with:');
+    print('Script: $scriptPath');
+    print('Landmark: $landmarkModelPath');
+    print('Drowsy: $drowsyModelPath');
+
+    // Use 'py' on Windows (Python launcher)
+    final pythonCommand = Platform.isWindows ? 'py' : 'python3';
 
     _monitorProcess = await Process.start(
-      pythonExe,
+      pythonCommand,
       [
         scriptPath,
         '--landmark-model', landmarkModelPath,
@@ -196,49 +208,99 @@ class _DriverDashboardState extends State<DriverDashboard>
       mode: ProcessStartMode.normal,
     );
 
-      // Listen to stdout lines (JSON stats)
-      _monitorProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
-        try {
-          final data = json.decode(line) as Map<String, dynamic>;
-          if (data.containsKey('error')) {
-            // ignore errors for now or surface via snackbar
-            return;
+    // Listen to stdout (JSON data)
+    _monitorProcess!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      print('📊 Python stdout: $line');
+      try {
+        final data = json.decode(line) as Map<String, dynamic>;
+        
+        if (data.containsKey('error')) {
+          print('❌ Python error: ${data['error']}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Camera error: ${data['error']}'),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
+          return;
+        }
+        
+        if (data.containsKey('status')) {
+          print('✅ Python status: ${data['status']}');
+          return;
+        }
+        
+        // Update UI with real stats
+        if (mounted) {
           setState(() {
             _alertness = (data['alertness'] as num?)?.toDouble() ?? _alertness;
             _ear = (data['ear'] as num?)?.toDouble() ?? _ear;
             _mar = (data['mar'] as num?)?.toDouble() ?? _mar;
             _eyeClosurePercentage = (data['eyeClosure'] as num?)?.toDouble() ?? _eyeClosurePercentage;
           });
-        } catch (_) {
-          // ignore malformed lines
+          
+          // Show drowsiness alert
+          if (data['isDrowsy'] == true) {
+            final reason = data['reason'] as String? ?? 'unknown';
+            final reasonText = reason == 'eyes_closed' ? 'Eyes Closed' : 
+                             reason == 'yawning' ? 'Yawning Detected' : 'Alert';
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ DROWSINESS ALERT: $reasonText'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
-      });
+      } catch (e) {
+        print('❌ Error parsing JSON: $e, Line: $line');
+      }
+    });
 
-      // Optionally listen to stderr for debugging
-      _monitorProcess!.stderr.transform(utf8.decoder).listen((_) {});
+    // Listen to stderr (errors and debug info)
+    _monitorProcess!.stderr.transform(utf8.decoder).listen((error) {
+      print('🔴 Python stderr: $error');
+    });
 
-      // When process exits, stop monitoring state if still active
-      _monitorProcess!.exitCode.then((_) {
-        if (mounted && _isMonitoring) {
-          setState(() {
-            _isMonitoring = false;
-          });
-        }
-      });
-    } catch (e) {
-      // Fallback to mock data if launching fails
-      _updateTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    // When process exits
+    _monitorProcess!.exitCode.then((exitCode) {
+      print('🛑 Python process exited with code: $exitCode');
+      if (mounted && _isMonitoring) {
         setState(() {
-          _alertness = 70 + _random.nextDouble() * 25;
-          _ear = _random.nextDouble() * 0.3;
-          _mar = _random.nextDouble() * 0.3;
-          _eyeClosurePercentage = _random.nextDouble() * 30;
+          _isMonitoring = false;
         });
-      });
+      }
+    });
+    
+    print('✅ Python process started successfully!');
+    
+  } catch (e) {
+    print('💥 Error launching Python: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to start camera: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
+    
+    // Fallback to mock data if launching fails
+    _updateTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      setState(() {
+        _alertness = 70 + _random.nextDouble() * 25;
+        _ear = _random.nextDouble() * 0.3;
+        _mar = _random.nextDouble() * 0.3;
+        _eyeClosurePercentage = _random.nextDouble() * 30;
+      });
+    });
   }
-
+}
   void _killPythonMonitor() {
     try {
       _monitorProcess?.kill(ProcessSignal.sigint);

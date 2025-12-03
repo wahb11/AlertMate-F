@@ -189,7 +189,7 @@ class _AuthScreenState extends State<AuthScreen>
                   user.id,
                   user.email,
                 );
-              } else {
+        } else {
                 // Regular driver - assign general pending vehicles
                 await vehicleService.assignGeneralPendingVehiclesToNewDriver(
                   user.id,
@@ -209,11 +209,11 @@ class _AuthScreenState extends State<AuthScreen>
         // SIGN UP FLOW
         try {
           final user = await _authService.signUp(
-            firstName: _firstNameController.text.trim(),
-            lastName: _lastNameController.text.trim(),
-            email: email,
-            phone: '$_selectedDialCode ${_phoneController.text.trim()}',
-            password: _passwordController.text,
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: email,
+          phone: '$_selectedDialCode ${_phoneController.text.trim()}',
+          password: _passwordController.text,
             roles: [_getSelectedRole()],
           );
           
@@ -239,7 +239,7 @@ class _AuthScreenState extends State<AuthScreen>
                   'Vehicle${assignedVehicles.length > 1 ? 's' : ''} Assigned!',
                   'Your ${assignedVehicles.length} vehicle${assignedVehicles.length > 1 ? 's have' : ' has'} been automatically assigned to you. You can now see ${assignedVehicles.length > 1 ? 'them' : 'it'} in your driver dashboard.',
                 );
-              } else {
+        } else {
                 _showSuccessDialog('Driver account created! Please verify your email.');
               }
             } else {
@@ -845,7 +845,7 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  Widget _buildToggleButton(String text, bool isActive, VoidCallback onTap) {
+    Widget _buildToggleButton(String text, bool isActive, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedScale(
