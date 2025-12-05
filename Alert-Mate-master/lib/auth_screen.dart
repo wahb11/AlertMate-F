@@ -707,7 +707,8 @@ class _AuthScreenState extends State<AuthScreen>
                                   ],
                                   const SizedBox(height: 20),
                                   _buildPasswordField(),
-                                  if (isSignIn) ...[
+                                  if (isSignIn && _selectedDashboard != 3) ...[
+                                    // Don't show forgot password for admin (index 3)
                                     const SizedBox(height: 12),
                                     Align(
                                       alignment: Alignment.centerRight,
@@ -1056,18 +1057,40 @@ class _AuthScreenState extends State<AuthScreen>
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
+          onChanged: (value) {
+            if (!isSignIn) {
+              setState(() {}); // Trigger rebuild to update strength indicator
+            }
+          },
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Password is Required!';
             }
-            if (!isSignIn && value.length < 6) {
-              return 'Password must be at least 6 characters';
+            if (!isSignIn) {
+              // Strong password validation for signup
+              if (value.length < 8) {
+                return 'Password must be at least 8 characters';
+              }
+              if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                return 'Password must contain at least one uppercase letter';
+              }
+              if (!RegExp(r'[a-z]').hasMatch(value)) {
+                return 'Password must contain at least one lowercase letter';
+              }
+              if (!RegExp(r'[0-9]').hasMatch(value)) {
+                return 'Password must contain at least one number';
+              }
+              if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+                return 'Password must contain at least one special character';
+              }
             }
             return null;
           },
           decoration: InputDecoration(
-            hintText: isSignIn ? 'Enter a password' : 'Create a Password',
-            hintStyle: const TextStyle(color: Color(0xFFBDC3C7)),
+            hintText: isSignIn 
+                ? 'Enter a password' 
+                : 'Mix of letters, numbers & special chars (min 8)',
+            hintStyle: const TextStyle(color: Color(0xFFBDC3C7), fontSize: 13),
             filled: true,
             fillColor: const Color(0xFFF8F9FA),
             suffixIcon: IconButton(
@@ -1105,8 +1128,133 @@ class _AuthScreenState extends State<AuthScreen>
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
         ),
+        if (!isSignIn) ...[
+          const SizedBox(height: 8),
+          _buildPasswordStrengthIndicator(),
+        ],
       ],
     );
+  }
+
+  // Password strength indicator
+  Widget _buildPasswordStrengthIndicator() {
+    final password = _passwordController.text;
+    final strength = _calculatePasswordStrength(password);
+    
+    Color strengthColor;
+    String strengthText;
+    double strengthValue;
+    
+    switch (strength) {
+      case 'strong':
+        strengthColor = Colors.green;
+        strengthText = 'Strong';
+        strengthValue = 1.0;
+        break;
+      case 'medium':
+        strengthColor = Colors.orange;
+        strengthText = 'Medium';
+        strengthValue = 0.6;
+        break;
+      case 'weak':
+        strengthColor = Colors.red;
+        strengthText = 'Weak';
+        strengthValue = 0.3;
+        break;
+      default:
+        strengthColor = Colors.grey;
+        strengthText = '';
+        strengthValue = 0.0;
+    }
+
+    if (password.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: strengthValue,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(strengthColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              strengthText,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: strengthColor,
+              ),
+            ),
+          ],
+        ),
+        if (strength != 'strong') ...[
+          const SizedBox(height: 6),
+          Text(
+            _getPasswordRequirements(password),
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _calculatePasswordStrength(String password) {
+    if (password.isEmpty) return 'none';
+    if (password.length < 8) return 'weak';
+    
+    int strength = 0;
+    
+    // Check for uppercase
+    if (RegExp(r'[A-Z]').hasMatch(password)) strength++;
+    // Check for lowercase
+    if (RegExp(r'[a-z]').hasMatch(password)) strength++;
+    // Check for numbers
+    if (RegExp(r'[0-9]').hasMatch(password)) strength++;
+    // Check for special characters
+    if (RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) strength++;
+    // Check length
+    if (password.length >= 12) strength++;
+    
+    if (strength >= 4) return 'strong';
+    if (strength >= 2) return 'medium';
+    return 'weak';
+  }
+
+  String _getPasswordRequirements(String password) {
+    List<String> missing = [];
+    
+    if (password.length < 8) {
+      missing.add('8+ characters');
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      missing.add('uppercase letter');
+    }
+    if (!RegExp(r'[a-z]').hasMatch(password)) {
+      missing.add('lowercase letter');
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      missing.add('number');
+    }
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) {
+      missing.add('special character');
+    }
+    
+    if (missing.isEmpty) return '';
+    return 'Missing: ${missing.join(', ')}';
   }
 
   Widget _buildSignUpLink() {

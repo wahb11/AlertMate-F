@@ -16,6 +16,7 @@ import 'package:firebase_database/firebase_database.dart';
 import '../auth_screen.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../constants/app_colors.dart';
+import '../screens/driver_history_screen.dart';
 
 class DriverDashboard extends StatefulWidget {
   final User user;
@@ -390,9 +391,11 @@ class _DriverDashboardState extends State<DriverDashboard>
       appBar: isMobile ? AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () => Scaffold.of(context).openDrawer(),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
         title: Text(
           'Driver Dashboard',
@@ -446,20 +449,24 @@ class _DriverDashboardState extends State<DriverDashboard>
 
   Widget _buildMobileDrawer() {
     return Drawer(
-      child: AppSidebar(
-        role: 'driver',
-        user: widget.user,
-        selectedIndex: _selectedIndex,
-        onMenuItemTap: (index) {
-          setState(() => _selectedIndex = index);
-          Navigator.pop(context);
-        },
-        menuItems: const [
-          MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
-          MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
-        ],
-        accentColor: AppColors.driverPrimary,
-        accentLightColor: AppColors.driverLight,
+      width: MediaQuery.of(context).size.width * 0.85,
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: AppSidebar(
+          role: 'driver',
+          user: widget.user,
+          selectedIndex: _selectedIndex,
+          onMenuItemTap: (index) {
+            setState(() => _selectedIndex = index);
+            Navigator.pop(context);
+          },
+          menuItems: const [
+            MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+            MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+          ],
+          accentColor: AppColors.driverPrimary,
+          accentLightColor: AppColors.driverLight,
+        ),
       ),
     );
   }
@@ -526,8 +533,8 @@ class _DriverDashboardState extends State<DriverDashboard>
                             ),
                           ),
                         ],
-                      ],
-                    ),
+                  ],
+                ),
                     SizedBox(
                       width: isMobile ? double.infinity : null,
                       child: ElevatedButton.icon(
@@ -549,6 +556,33 @@ class _DriverDashboardState extends State<DriverDashboard>
                             borderRadius: BorderRadius.circular(8),
                           ),
                           elevation: 0,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: isMobile ? double.infinity : null,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DriverHistoryScreen(
+                                driverId: widget.user.id,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.history),
+                        label: const Text('View History'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.driverPrimary,
+                          side: BorderSide(color: AppColors.driverPrimary),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 20 : 24,
+                              vertical: isMobile ? 14 : 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                       ),
                     ),
@@ -616,14 +650,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                                 ],
                               ),
                               SizedBox(height: isMobile ? 8 : 12),
-                              Wrap(
-                                spacing: isMobile ? 8 : 16,
-                                runSpacing: isMobile ? 8 : 0,
-                                children: [
-                                  _buildVehicleInfoChip(Icons.confirmation_number, assignedVehicle.licensePlate, isMobile),
-                                  _buildVehicleInfoChip(Icons.tag, assignedVehicle.id, isMobile),
-                                ],
-                              ),
+                              _buildVehicleInfoChip(Icons.confirmation_number, assignedVehicle.licensePlate, isMobile),
                             ],
                           ),
                         ),
@@ -1609,10 +1636,11 @@ class _DriverDashboardState extends State<DriverDashboard>
     final emailController = TextEditingController();
     String priority = 'secondary';
     List<String> methods = ['call'];
+    final scaffoldContext = context; // Store scaffold context
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Add Emergency Contact'),
           content: SingleChildScrollView(
@@ -1723,7 +1751,8 @@ class _DriverDashboardState extends State<DriverDashboard>
                 if (nameController.text.isEmpty || 
                     relationshipController.text.isEmpty || 
                     phoneController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                     const SnackBar(content: Text('Please fill in all required fields')),
                   );
                   return;
@@ -1745,14 +1774,15 @@ class _DriverDashboardState extends State<DriverDashboard>
                   );
                   
                   if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                       SnackBar(content: Text('${nameController.text} added to emergency contacts')),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                       SnackBar(content: Text('Error adding contact: $e')),
                     );
                   }
@@ -1774,10 +1804,11 @@ class _DriverDashboardState extends State<DriverDashboard>
     final emailController = TextEditingController(text: contact.email);
     String priority = contact.priority;
     List<String> methods = List<String>.from(contact.methods);
+    final scaffoldContext = context; // Store scaffold context
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
+      builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: const Text('Edit Emergency Contact'),
           content: SingleChildScrollView(
@@ -1888,7 +1919,8 @@ class _DriverDashboardState extends State<DriverDashboard>
                 if (nameController.text.isEmpty || 
                     relationshipController.text.isEmpty || 
                     phoneController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                     const SnackBar(content: Text('Please fill in all required fields')),
                   );
                   return;
@@ -1909,14 +1941,15 @@ class _DriverDashboardState extends State<DriverDashboard>
                   );
                   
                   if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                       SnackBar(content: Text('${nameController.text} updated successfully')),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
                       SnackBar(content: Text('Error updating contact: $e')),
                     );
                   }
@@ -2006,12 +2039,10 @@ class _DriverDashboardState extends State<DriverDashboard>
                     label: Text('Add Contact', style: TextStyle(fontSize: isMobile ? 13 : 14)),
                     style: ElevatedButton.styleFrom(
                       padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 12 : 16,
+                          horizontal: isMobile ? 12 : 20,
                           vertical: isMobile ? 10 : 12),
                       backgroundColor: const Color(0xFF2196F3),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -2023,13 +2054,15 @@ class _DriverDashboardState extends State<DriverDashboard>
               SizedBox(height: isMobile ? 16 : 24),
               isMobile
                   ? contacts.isEmpty
-                      ? Center(
+                      ? Padding(
                           padding: EdgeInsets.all(isMobile ? 20 : 40),
-                          child: Text(
-                            'No emergency contacts added yet',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
+                          child: Center(
+                            child: Text(
+                              'No emergency contacts added yet',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           ),
                         )
@@ -2332,7 +2365,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete ${contact.name} from emergency contacts?'),
+                  content: Text('Are you sure you want to delete ${contact.name} from emergency contacts? This action cannot be undone.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -2340,6 +2373,7 @@ class _DriverDashboardState extends State<DriverDashboard>
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                       child: const Text('Delete'),
                     ),
                   ],

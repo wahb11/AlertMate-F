@@ -98,26 +98,90 @@ class _PassengerDashboardState extends State<PassengerDashboard>
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Row(
-        children: [
-          AppSidebar(
-            role: 'passenger',
-            user: widget.user,
-            selectedIndex: _selectedIndex,
-            onMenuItemTap: (index) => setState(() => _selectedIndex = index),
-            menuItems: const [
-              MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
-              MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
-            ],
-            accentColor: AppColors.passengerPrimary,
-            accentLightColor: AppColors.passengerLight,
+      drawer: isMobile ? _buildMobileDrawer() : null,
+      appBar: isMobile ? AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () => Scaffold.of(context).openDrawer(),
           ),
-          Expanded(
-            child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
+        ),
+        title: Text(
+          'Passenger Dashboard',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.passengerPrimary,
+              child: Text(
+                widget.user.firstName[0].toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
         ],
+      ) : null,
+      body: isMobile
+          ? _selectedIndex == 0 ? _buildDashboard() : _buildEmergency()
+          : Row(
+              children: [
+                AppSidebar(
+                  role: 'passenger',
+                  user: widget.user,
+                  selectedIndex: _selectedIndex,
+                  onMenuItemTap: (index) => setState(() => _selectedIndex = index),
+                  menuItems: const [
+                    MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+                    MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+                  ],
+                  accentColor: AppColors.passengerPrimary,
+                  accentLightColor: AppColors.passengerLight,
+                ),
+                Expanded(
+                  child: _selectedIndex == 0 ? _buildDashboard() : _buildEmergency(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMobileDrawer() {
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 0.85,
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: AppSidebar(
+          role: 'passenger',
+          user: widget.user,
+          selectedIndex: _selectedIndex,
+          onMenuItemTap: (index) {
+            setState(() => _selectedIndex = index);
+            Navigator.pop(context);
+          },
+          menuItems: const [
+            MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+            MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+          ],
+          accentColor: AppColors.passengerPrimary,
+          accentLightColor: AppColors.passengerLight,
+        ),
       ),
     );
   }
@@ -157,28 +221,30 @@ class _PassengerDashboardState extends State<PassengerDashboard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStaggeredItem(
-                  const Text(
-                    'Passenger Safety Monitor',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                if (!isMobile) ...[
+                  _buildStaggeredItem(
+                    Text(
+                      'Passenger Safety Monitor',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
+                    0,
                   ),
-                  0,
-                ),
-                const SizedBox(height: 8),
-                _buildStaggeredItem(
-                  const Text(
-                    'Real-time monitoring of driver status and trip safety',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
+                  SizedBox(height: isMobile ? 6 : 8),
+                  _buildStaggeredItem(
+                    Text(
+                      'Real-time monitoring of driver status and trip safety',
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 16,
+                        color: Colors.black54,
+                      ),
                     ),
+                    1,
                   ),
-                  1,
-                ),
+                ],
                 const SizedBox(height: 32),
                 _buildStaggeredItem(
                   _buildEmergencyControlsCard(),
@@ -1304,78 +1370,123 @@ class _PassengerDashboardState extends State<PassengerDashboard>
 
   // Add this method to your dashboard state class
   Widget _buildEmergency() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Emergency Contacts',
               style: TextStyle(
-                fontSize: 36,
+                fontSize: isMobile ? 24 : 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: isMobile ? 6 : 8),
+            Text(
               'Quick access to emergency services and contacts',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: isMobile ? 13 : 16,
                 color: Colors.black54,
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: isMobile ? 24 : 32),
 
             // Emergency Services Grid
-            Wrap(
-              spacing: 20,
-              runSpacing: 20,
-              children: [
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard(
-                    'Police',
-                    '15',
-                    Icons.local_police,
-                    const Color(0xFF2196F3),
-                    const Color(0xFFE3F2FD),
+            isMobile
+                ? Column(
+                    children: [
+                      _buildEmergencyServiceCard(
+                        'Police',
+                        '15',
+                        Icons.local_police,
+                        const Color(0xFF2196F3),
+                        const Color(0xFFE3F2FD),
+                        isMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard(
+                        'Ambulance',
+                        '1122',
+                        Icons.local_hospital,
+                        Colors.red,
+                        const Color(0xFFFFEBEE),
+                        isMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard(
+                        'Fire Department',
+                        '16',
+                        Icons.local_fire_department,
+                        const Color(0xFFFF6F00),
+                        const Color(0xFFFFF3E0),
+                        isMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard(
+                        'Motorway Police',
+                        '130',
+                        Icons.car_crash,
+                        const Color(0xFF4CAF50),
+                        const Color(0xFFE8F5E9),
+                        isMobile,
+                      ),
+                    ],
+                  )
+                : Wrap(
+                    spacing: 20,
+                    runSpacing: 20,
+                    children: [
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard(
+                          'Police',
+                          '15',
+                          Icons.local_police,
+                          const Color(0xFF2196F3),
+                          const Color(0xFFE3F2FD),
+                          isMobile,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard(
+                          'Ambulance',
+                          '1122',
+                          Icons.local_hospital,
+                          Colors.red,
+                          const Color(0xFFFFEBEE),
+                          isMobile,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard(
+                          'Fire Department',
+                          '16',
+                          Icons.local_fire_department,
+                          const Color(0xFFFF6F00),
+                          const Color(0xFFFFF3E0),
+                          isMobile,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard(
+                          'Motorway Police',
+                          '130',
+                          Icons.car_crash,
+                          const Color(0xFF4CAF50),
+                          const Color(0xFFE8F5E9),
+                          isMobile,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard(
-                    'Ambulance',
-                    '1122',
-                    Icons.local_hospital,
-                    Colors.red,
-                    const Color(0xFFFFEBEE),
-                  ),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard(
-                    'Fire Department',
-                    '16',
-                    Icons.local_fire_department,
-                    const Color(0xFFFF6F00),
-                    const Color(0xFFFFF3E0),
-                  ),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard(
-                    'Motorway Police',
-                    '130',
-                    Icons.car_crash,
-                    const Color(0xFF4CAF50),
-                    const Color(0xFFE8F5E9),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
+            SizedBox(height: isMobile ? 24 : 32),
 
             // Emergency Contacts Table
             _buildEmergencyContactsTable(),
@@ -1385,9 +1496,9 @@ class _PassengerDashboardState extends State<PassengerDashboard>
     );
   }
 
-  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor) {
+  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor, [bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1402,29 +1513,29 @@ class _PassengerDashboardState extends State<PassengerDashboard>
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: isMobile ? 56 : 64,
+            height: isMobile ? 56 : 64,
             decoration: BoxDecoration(
               color: bgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 32),
+            child: Icon(icon, color: color, size: isMobile ? 28 : 32),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isMobile ? 12 : 16),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
+            style: TextStyle(
+              fontSize: isMobile ? 14 : 16,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Text(
             number,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: isMobile ? 28 : 32,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -1765,10 +1876,17 @@ class _PassengerDashboardState extends State<PassengerDashboard>
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete ${contact.name} from emergency contacts?'),
+                  content: Text('Are you sure you want to delete ${contact.name} from emergency contacts? This action cannot be undone.'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('Delete'),
+                    ),
                   ],
                 ),
               );

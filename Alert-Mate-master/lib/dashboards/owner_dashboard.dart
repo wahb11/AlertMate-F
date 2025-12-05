@@ -4,6 +4,7 @@ import '../models/vehicle.dart';
 import '../models/emergency_contact.dart';
 import '../services/vehicle_service.dart';
 import '../services/emergency_contact_service.dart';
+import '../services/monitoring_service.dart';
 import '../constants/app_colors.dart';
 import '../widgets/shared/app_sidebar.dart';
 import '../auth_screen.dart';
@@ -19,6 +20,7 @@ class OwnerDashboard extends StatefulWidget {
 
 class _OwnerDashboardState extends State<OwnerDashboard> with TickerProviderStateMixin {
   final VehicleService _vehicleService = VehicleService();
+  final MonitoringService _monitoringService = MonitoringService();
   late EmergencyContactService _emergencyContactService;
   
   int _selectedIndex = 0;
@@ -86,24 +88,71 @@ void initState() {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Make'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                  onSaved: (value) => make = value!,
+                  decoration: const InputDecoration(labelText: 'Make *'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Make is required';
+                    }
+                    if (value.trim().length < 2) {
+                      return 'Make must be at least 2 characters';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) => make = value!.trim(),
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Model'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                  onSaved: (value) => model = value!,
+                  decoration: const InputDecoration(labelText: 'Model *'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Model is required';
+                    }
+                    if (value.trim().length < 2) {
+                      return 'Model must be at least 2 characters';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) => model = value!.trim(),
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'Year'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                  onSaved: (value) => year = value!,
+                  decoration: const InputDecoration(labelText: 'Year *'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Year is required';
+                    }
+                    final yearInt = int.tryParse(value.trim());
+                    if (yearInt == null) {
+                      return 'Year must be a valid number';
+                    }
+                    final currentYear = DateTime.now().year;
+                    if (yearInt < 1900 || yearInt > currentYear + 1) {
+                      return 'Year must be between 1900 and ${currentYear + 1}';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) => year = value!.trim(),
                 ),
+                const SizedBox(height: 8),
                 TextFormField(
-                  decoration: const InputDecoration(labelText: 'License Plate'),
-                  validator: (value) => value!.isEmpty ? 'Required' : null,
-                  onSaved: (value) => licensePlate = value!,
+                  decoration: const InputDecoration(labelText: 'License Plate *'),
+                  textCapitalization: TextCapitalization.characters,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'License plate is required';
+                    }
+                    final plate = value.trim().toUpperCase();
+                    if (plate.length < 3 || plate.length > 15) {
+                      return 'License plate must be 3-15 characters';
+                    }
+                    // Basic validation: alphanumeric with optional spaces/dashes
+                    if (!RegExp(r'^[A-Z0-9\s\-]+$').hasMatch(plate)) {
+                      return 'License plate contains invalid characters';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) => licensePlate = value!.trim().toUpperCase(),
                 ),
                 const SizedBox(height: 16),
                 CheckboxListTile(
@@ -131,6 +180,35 @@ void initState() {
               onPressed: () async {
                 if (formKey.currentState!.validate()) {
                   formKey.currentState!.save();
+                  
+                  // Show confirmation dialog
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Confirm Vehicle Addition'),
+                      content: Text(
+                        'Are you sure you want to add this vehicle?\n\n'
+                        'Make: $make\n'
+                        'Model: $model\n'
+                        'Year: $year\n'
+                        'License Plate: $licensePlate\n'
+                        '${willDrive ? "You will be assigned as the driver." : "Vehicle will be available for driver assignment."}',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Confirm'),
+                        ),
+                      ],
+                    ),
+                  );
+                  
+                  if (confirm != true) return;
+                  
                   Navigator.pop(context);
                   
                   try {
@@ -152,6 +230,19 @@ void initState() {
                       if (mounted) {
                         _showDriverRegistrationDialog();
                       }
+                    } else if (result != null && willDrive && result.assignedDriverId == null) {
+                      // Vehicle was created but not assigned because owner already has one
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Vehicle added! Since you already have a vehicle assigned, this one will be automatically assigned to the next driver who signs up.',
+                            ),
+                            backgroundColor: AppColors.primary,
+                            duration: const Duration(seconds: 5),
+                          ),
+                        );
+                      }
                     } else {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -166,8 +257,32 @@ void initState() {
                     }
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                      // Show error in a dialog for better visibility
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Row(
+                            children: [
+                              Icon(Icons.error_outline, color: AppColors.danger, size: 28),
+                              SizedBox(width: 12),
+                              Expanded(child: Text('Error Adding Vehicle')),
+                            ],
+                          ),
+                          content: Text(
+                            e.toString().replaceFirst('Exception: ', ''),
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.danger,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
                       );
                     }
                   }
@@ -241,9 +356,11 @@ void initState() {
       appBar: isMobile ? AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
-          onPressed: () => Scaffold.of(context).openDrawer(),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
         title: Text(
           'Fleet Management',
@@ -297,20 +414,24 @@ void initState() {
 
   Widget _buildMobileDrawer() {
     return Drawer(
-      child: AppSidebar(
-        role: 'owner',
-        user: widget.user is User ? widget.user : null,
-        selectedIndex: _selectedIndex,
-        onMenuItemTap: (index) {
-          setState(() => _selectedIndex = index);
-          Navigator.pop(context);
-        },
-        menuItems: const [
-          MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
-          MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
-        ],
-        accentColor: AppColors.primary,
-        accentLightColor: AppColors.primaryLight,
+      width: MediaQuery.of(context).size.width * 0.85,
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: AppSidebar(
+          role: 'owner',
+          user: widget.user is User ? widget.user : null,
+          selectedIndex: _selectedIndex,
+          onMenuItemTap: (index) {
+            setState(() => _selectedIndex = index);
+            Navigator.pop(context);
+          },
+          menuItems: const [
+            MenuItem(icon: Icons.home_outlined, title: 'Dashboard'),
+            MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+          ],
+          accentColor: AppColors.primary,
+          accentLightColor: AppColors.primaryLight,
+        ),
       ),
     );
   }
@@ -1801,7 +1922,7 @@ Widget _buildFleetOverview() {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete ${contact.name} from emergency contacts?'),
+                  content: Text('Are you sure you want to delete ${contact.name} from emergency contacts? This action cannot be undone.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -1809,6 +1930,7 @@ Widget _buildFleetOverview() {
                     ),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                       child: const Text('Delete'),
                     ),
                   ],
@@ -1864,7 +1986,7 @@ Widget _buildFleetOverview() {
                   ),
                 ),
               ),
-              _buildStatusBadge(vehicle.status, true),
+              _buildMobileRealtimeStatusBadge(vehicle),
             ],
           ),
           const SizedBox(height: 8),
@@ -1894,46 +2016,13 @@ Widget _buildFleetOverview() {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                'Alertness: ',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              Text(
-                '${vehicle.alertness}%',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: vehicle.alertness / 100,
-                    minHeight: 6,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      vehicle.alertness >= 80 ? AppColors.success :
-                      vehicle.alertness >= 70 ? AppColors.warning : AppColors.danger,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _buildMobileRealtimeAlertness(vehicle),
           const SizedBox(height: 8),
           Row(
             children: [
               Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
               const SizedBox(width: 4),
-              Text(
-                vehicle.lastUpdate ?? 'N/A',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
+              _buildMobileRealtimeLastUpdate(vehicle),
               const Spacer(),
               _buildActionsCell(true),
             ],
@@ -1979,12 +2068,91 @@ Widget _buildFleetOverview() {
       children: [
         _buildTableCell(vehicle.licensePlate, isMobile),
         _buildTableCell(vehicle.driverName ?? 'Unassigned', isMobile),
-        _buildStatusBadge(vehicle.status, isMobile),
-        _buildAlertnessCell(vehicle.alertness, isMobile),
+        _buildRealtimeStatusBadge(vehicle, isMobile),
+        _buildRealtimeAlertnessCell(vehicle, isMobile),
         _buildTableCell(vehicle.location ?? 'Unknown', isMobile),
-        _buildTableCell(vehicle.lastUpdate ?? 'N/A', isMobile),
+        _buildRealtimeLastUpdateCell(vehicle, isMobile),
         _buildActionsCell(isMobile),
       ],
+    );
+  }
+
+  // Real-time status badge that updates based on driver alertness
+  Widget _buildRealtimeStatusBadge(Vehicle vehicle, [bool isMobile = false]) {
+    if (vehicle.assignedDriverId == null) {
+      return _buildStatusBadge('Unassigned', isMobile);
+    }
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        String status = 'Inactive'; // Default to Inactive if no session
+        
+        // If we have real-time data, determine status based on alertness
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final alertness = stats['alertness'];
+          final drowsinessDetected = stats['drowsinessDetected'] ?? false;
+          
+          if (alertness != null) {
+            final alertnessValue = (alertness as num).toDouble();
+            if (drowsinessDetected || alertnessValue < 50) {
+              status = 'Critical';
+            } else if (alertnessValue < 70) {
+              status = 'Break'; // Suggest break
+            } else {
+              status = 'Active';
+            }
+          }
+        } else {
+          // No data means no active session
+          status = 'Inactive';
+        }
+
+        return _buildStatusBadge(status, isMobile);
+      },
+    );
+  }
+
+  // Real-time last update cell
+  Widget _buildRealtimeLastUpdateCell(Vehicle vehicle, [bool isMobile = false]) {
+    if (vehicle.assignedDriverId == null) {
+      return _buildTableCell(vehicle.lastUpdate ?? 'N/A', isMobile);
+    }
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        String lastUpdate = 'No session';
+        
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final lastUpdateTimestamp = stats['lastUpdate'];
+          if (lastUpdateTimestamp != null) {
+            // Convert timestamp to readable format
+            try {
+              final timestamp = lastUpdateTimestamp as int;
+              final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+              final now = DateTime.now();
+              final difference = now.difference(dateTime);
+              
+              if (difference.inSeconds < 60) {
+                lastUpdate = 'Just now';
+              } else if (difference.inMinutes < 60) {
+                lastUpdate = '${difference.inMinutes}m ago';
+              } else if (difference.inHours < 24) {
+                lastUpdate = '${difference.inHours}h ago';
+              } else {
+                lastUpdate = '${difference.inDays}d ago';
+              }
+            } catch (e) {
+              // Keep default if parsing fails
+            }
+          }
+        }
+
+        return _buildTableCell(lastUpdate, isMobile);
+      },
     );
   }
 
@@ -1999,6 +2167,12 @@ Widget _buildFleetOverview() {
         break;
       case 'Critical':
         color = AppColors.danger;
+        break;
+      case 'Inactive':
+        color = Colors.grey;
+        break;
+      case 'Unassigned':
+        color = Colors.orange[700]!;
         break;
       default:
         color = Colors.grey;
@@ -2064,6 +2238,33 @@ Widget _buildFleetOverview() {
     );
   }
 
+  // Real-time alertness cell that listens to Firebase
+  Widget _buildRealtimeAlertnessCell(Vehicle vehicle, [bool isMobile = false]) {
+    // If no driver assigned, show static value
+    if (vehicle.assignedDriverId == null) {
+      return _buildAlertnessCell(vehicle.alertness, isMobile);
+    }
+
+    // Listen to real-time stats from Firebase
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        int alertnessValue = 0; // Default to 0 if no session
+        
+        // If we have real-time data, use it
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final realtimeAlertness = stats['alertness'];
+          if (realtimeAlertness != null) {
+            alertnessValue = (realtimeAlertness as num).toInt();
+          }
+        }
+
+        return _buildAlertnessCell(alertnessValue, isMobile);
+      },
+    );
+  }
+
   Widget _buildActionsCell([bool isMobile = false]) {
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -2095,6 +2296,173 @@ Widget _buildFleetOverview() {
           ),
         ],
       ),
+    );
+  }
+
+  // Mobile real-time alertness widget
+  Widget _buildMobileRealtimeAlertness(Vehicle vehicle) {
+    if (vehicle.assignedDriverId == null) {
+      return Row(
+        children: [
+          Text(
+            'Alertness: ',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          Text(
+            '${vehicle.alertness}%',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: vehicle.alertness / 100,
+                minHeight: 6,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  vehicle.alertness >= 80 ? AppColors.success :
+                  vehicle.alertness >= 70 ? AppColors.warning : AppColors.danger,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        int alertnessValue = 0; // Default to 0 if no session
+        
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final realtimeAlertness = stats['alertness'];
+          if (realtimeAlertness != null) {
+            alertnessValue = (realtimeAlertness as num).toInt();
+          }
+        }
+
+        return Row(
+          children: [
+            Text(
+              'Alertness: ',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            Text(
+              '$alertnessValue%',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: alertnessValue / 100,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    alertnessValue >= 80 ? AppColors.success :
+                    alertnessValue >= 70 ? AppColors.warning : AppColors.danger,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Mobile real-time status badge
+  Widget _buildMobileRealtimeStatusBadge(Vehicle vehicle) {
+    if (vehicle.assignedDriverId == null) {
+      return _buildStatusBadge('Unassigned', true);
+    }
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        String status = 'Inactive'; // Default to Inactive if no session
+        
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final alertness = stats['alertness'];
+          final drowsinessDetected = stats['drowsinessDetected'] ?? false;
+          
+          if (alertness != null) {
+            final alertnessValue = (alertness as num).toDouble();
+            if (drowsinessDetected || alertnessValue < 50) {
+              status = 'Critical';
+            } else if (alertnessValue < 70) {
+              status = 'Break';
+            } else {
+              status = 'Active';
+            }
+          }
+        } else {
+          // No data means no active session
+          status = 'Inactive';
+        }
+
+        return _buildStatusBadge(status, true);
+      },
+    );
+  }
+
+  // Mobile real-time last update widget
+  Widget _buildMobileRealtimeLastUpdate(Vehicle vehicle) {
+    if (vehicle.assignedDriverId == null) {
+      return Text(
+        vehicle.lastUpdate ?? 'N/A',
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+      );
+    }
+
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _monitoringService.getCurrentStats(vehicle.assignedDriverId!),
+      builder: (context, snapshot) {
+        String lastUpdate = 'No session';
+        
+        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+          final stats = snapshot.data!;
+          final lastUpdateTimestamp = stats['lastUpdate'];
+          if (lastUpdateTimestamp != null) {
+            try {
+              final timestamp = lastUpdateTimestamp as int;
+              final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+              final now = DateTime.now();
+              final difference = now.difference(dateTime);
+              
+              if (difference.inSeconds < 60) {
+                lastUpdate = 'Just now';
+              } else if (difference.inMinutes < 60) {
+                lastUpdate = '${difference.inMinutes}m ago';
+              } else if (difference.inHours < 24) {
+                lastUpdate = '${difference.inHours}h ago';
+              } else {
+                lastUpdate = '${difference.inDays}d ago';
+              }
+            } catch (e) {
+              // Keep default if parsing fails
+            }
+          }
+        }
+
+        return Text(
+          lastUpdate,
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        );
+      },
     );
   }
 }

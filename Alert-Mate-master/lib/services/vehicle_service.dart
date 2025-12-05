@@ -7,6 +7,16 @@ class VehicleService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuthService _authService = FirebaseAuthService();
 
+  /// Check if driver already has an assigned vehicle (enforce 1 vehicle per driver)
+  Future<bool> _driverHasVehicle(String driverId) async {
+    final snapshot = await _firestore
+        .collection('vehicles')
+        .where('assignedDriverId', isEqualTo: driverId)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
   /// Add vehicle with smart driver assignment logic
   /// Returns: Vehicle if successful, null if owner needs driver registration
   Future<Vehicle?> addVehicleWithDriverCheck({
@@ -47,6 +57,29 @@ class VehicleService {
         
         if (isDriverRegistered) {
           print('✅ Owner is registered as driver. Auto-assigning vehicle...');
+          // Enforce one vehicle per driver - CHECK BEFORE ASSIGNMENT
+          final alreadyHasVehicle = await _driverHasVehicle(ownerId);
+          if (alreadyHasVehicle) {
+            print('⚠️ Owner already has a vehicle. Marking this vehicle for auto-assignment to next driver.');
+            // Mark vehicle for auto-assignment to next driver instead of throwing error
+            await vehicleRef.update({
+              'pendingAssignment': true,
+              'pendingOwnerAssignment': false,
+            });
+            
+            // Return special Vehicle object indicating it needs auto-assignment
+            return Vehicle(
+              id: vehicleRef.id,
+              make: make,
+              model: model,
+              year: year,
+              licensePlate: licensePlate,
+              ownerId: ownerId,
+              assignedDriverId: null, // Not assigned
+              status: 'Offline',
+              alertness: 0,
+            );
+          }
           
           await assignVehicleToDriver(
             vehicleId: vehicleRef.id,
@@ -124,6 +157,12 @@ class VehicleService {
   }) async {
     try {
       print('🔗 Assigning vehicle $vehicleId to driver $driverId');
+
+      // Enforce one vehicle per driver
+      final alreadyHasVehicle = await _driverHasVehicle(driverId);
+      if (alreadyHasVehicle) {
+        throw Exception('Driver already has a vehicle assigned');
+      }
       
       DocumentSnapshot driverDoc = 
           await _firestore.collection('users').doc(driverId).get();
@@ -176,6 +215,12 @@ class VehicleService {
     try {
       print('🎯 Looking for vehicles waiting for owner $ownerId to become a driver');
       
+      // If owner already has a vehicle, do not assign more
+      if (await _driverHasVehicle(ownerId)) {
+        print('⚠️ Owner already has an assigned vehicle. Skipping auto-assign.');
+        return [];
+      }
+
       // Find ALL vehicles owned by this user that are waiting for them to become a driver
       QuerySnapshot ownerPendingVehicles = await _firestore
           .collection('vehicles')
@@ -222,6 +267,12 @@ class VehicleService {
   ) async {
     try {
       print('🚗 Looking for general pending vehicles for new driver: $driverId');
+
+      // Enforce one vehicle per driver
+      if (await _driverHasVehicle(driverId)) {
+        print('⚠️ Driver already has an assigned vehicle. Skipping auto-assign.');
+        return false;
+      }
       
       // Find vehicles with pendingAssignment=true (owner said they won't drive)
       QuerySnapshot unassignedVehicles = await _firestore

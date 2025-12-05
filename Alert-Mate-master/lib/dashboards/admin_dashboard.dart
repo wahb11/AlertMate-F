@@ -79,15 +79,79 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
+    
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Row(
-        children: [
-          _buildSidebar(),
-          Expanded(
-            child: _selectedIndex == 0 ? _buildMainContent() : _buildEmergency(),
+      drawer: isMobile ? _buildMobileDrawer() : null,
+      appBar: isMobile ? AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black87),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        title: Text(
+          'Admin Dashboard',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.primary,
+              child: Text(
+                widget.user.firstName[0].toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
         ],
+      ) : null,
+      body: isMobile
+          ? _selectedIndex == 0 ? _buildMainContent() : _buildEmergency()
+          : Row(
+              children: [
+                _buildSidebar(),
+                Expanded(
+                  child: _selectedIndex == 0 ? _buildMainContent() : _buildEmergency(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMobileDrawer() {
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 0.85,
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: AppSidebar(
+          role: 'admin',
+          user: widget.user,
+          selectedIndex: _selectedIndex,
+          onMenuItemTap: (index) {
+            setState(() => _selectedIndex = index);
+            Navigator.pop(context);
+          },
+          menuItems: const [
+            MenuItem(icon: Icons.dashboard_outlined, title: 'Dashboard'),
+            MenuItem(icon: Icons.phone_outlined, title: 'Emergency'),
+          ],
+          accentColor: AppColors.primary,
+          accentLightColor: AppColors.primaryLight,
+        ),
       ),
     );
   }
@@ -118,51 +182,53 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStaggeredItem(
-                  const Text(
-                    'Admin Dashboard',
-                    style: TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                if (!isMobile) ...[
+                  _buildStaggeredItem(
+                    Text(
+                      'Admin Dashboard',
+                      style: TextStyle(
+                        fontSize: isMobile ? 24 : 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
+                    0,
                   ),
-                  0,
-                ),
-                const SizedBox(height: 8),
-                _buildStaggeredItem(
-                  const Text(
-                    'System overview and user management',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
+                  SizedBox(height: isMobile ? 6 : 8),
+                  _buildStaggeredItem(
+                    Text(
+                      'System overview and user management',
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 16,
+                        color: Colors.black54,
+                      ),
                     ),
+                    1,
                   ),
-                  1,
-                ),
+                ],
                 const SizedBox(height: 32),
                 _buildStaggeredItem(
                   isMobile
                       ? Column(
                           children: [
-                            _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary),
-                            const SizedBox(height: 16),
-                            _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success),
-                            const SizedBox(height: 16),
-                            _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning),
-                            const SizedBox(height: 16),
-                            _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success),
+                            _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary, isMobile),
+                            SizedBox(height: isMobile ? 12 : 16),
+                            _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success, isMobile),
+                            SizedBox(height: isMobile ? 12 : 16),
+                            _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning, isMobile),
+                            SizedBox(height: isMobile ? 12 : 16),
+                            _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success, isMobile),
                           ],
                         )
                       : Row(
                           children: [
-                            Expanded(child: _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary)),
+                            Expanded(child: _buildStatCard('Total Users', '2,543', 'Registered users', Icons.people, Colors.black87, AppColors.primary, isMobile)),
                             const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success)),
+                            Expanded(child: _buildStatCard('Active Sessions', '1,205', 'Currently online', Icons.devices, Colors.black87, AppColors.success, isMobile)),
                             const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning)),
+                            Expanded(child: _buildStatCard('Alerts Today', '45', 'Require attention', Icons.warning_amber, Colors.black87, AppColors.warning, isMobile)),
                             const SizedBox(width: 20),
-                            Expanded(child: _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success)),
+                            Expanded(child: _buildStatCard('System Health', '98%', 'All systems operational', Icons.health_and_safety, Colors.black87, AppColors.success, isMobile)),
                           ],
                         ),
                   2,
@@ -178,64 +244,77 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   }
 
   Widget _buildEmergency() {
+    final isMobile = MediaQuery.of(context).size.width < 768;
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(40.0),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 40.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Emergency Contacts',
               style: TextStyle(
-                fontSize: 36,
+                fontSize: isMobile ? 24 : 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: isMobile ? 6 : 8),
+            Text(
               'Quick access to emergency services and contacts',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: isMobile ? 13 : 16,
                 color: Colors.black54,
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: isMobile ? 24 : 32),
 
-            Wrap(
-              spacing: 20,
-              runSpacing: 20,
-              children: [
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight),
-                ),
-                SizedBox(
-                  width: 280,
-                  child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
+            isMobile
+                ? Column(
+                    children: [
+                      _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight, isMobile),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight, isMobile),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight, isMobile),
+                      const SizedBox(height: 12),
+                      _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight, isMobile),
+                    ],
+                  )
+                : Wrap(
+                    spacing: 20,
+                    runSpacing: 20,
+                    children: [
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard('Police', '15', Icons.local_police, AppColors.police, AppColors.policeLight, isMobile),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard('Ambulance', '1122', Icons.local_hospital, AppColors.ambulance, AppColors.ambulanceLight, isMobile),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard('Fire Department', '16', Icons.local_fire_department, AppColors.fire, AppColors.fireLight, isMobile),
+                      ),
+                      SizedBox(
+                        width: 280,
+                        child: _buildEmergencyServiceCard('Motorway Police', '130', Icons.car_crash, AppColors.motorway, AppColors.motorwayLight, isMobile),
+                      ),
+                    ],
+                  ),
+            SizedBox(height: isMobile ? 24 : 32),
 
-            _buildEmergencyContactsTable(),
+            _buildEmergencyContactsTable(isMobile),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor) {
+  Widget _buildEmergencyServiceCard(String title, String number, IconData icon, Color color, Color bgColor, [bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -250,29 +329,29 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: isMobile ? 56 : 64,
+            height: isMobile ? 56 : 64,
             decoration: BoxDecoration(
               color: bgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 32),
+            child: Icon(icon, color: color, size: isMobile ? 28 : 32),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isMobile ? 12 : 16),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
+            style: TextStyle(
+              fontSize: isMobile ? 14 : 16,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Text(
             number,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: isMobile ? 28 : 32,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -300,13 +379,13 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildEmergencyContactsTable() {
+  Widget _buildEmergencyContactsTable([bool isMobile = false]) {
     return StreamBuilder<List<EmergencyContact>>(
       stream: _emergencyContactService.getEmergencyContactsStream(widget.user.id),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Container(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(isMobile ? 16 : 28),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -324,7 +403,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(isMobile ? 16 : 28),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
@@ -343,7 +422,7 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
         final contacts = snapshot.data ?? [];
 
         return Container(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(isMobile ? 16 : 28),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -364,19 +443,19 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Emergency Contacts',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: isMobile ? 16 : 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: isMobile ? 2 : 4),
                       Text(
                         'Manage your emergency contact list',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: isMobile ? 12 : 14,
                           color: Colors.grey[600],
                         ),
                       ),
@@ -386,12 +465,14 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                     onPressed: () {
                       _showContactDialog(context: context);
                     },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Contact'),
+                    icon: Icon(Icons.add, size: isMobile ? 16 : 18),
+                    label: Text('Add Contact', style: TextStyle(fontSize: isMobile ? 13 : 14)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 12 : 20,
+                          vertical: isMobile ? 10 : 12),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -400,42 +481,62 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 800),
-                  child: Table(
-                    columnWidths: const {
-                      0: FlexColumnWidth(1.5),
-                      1: FlexColumnWidth(1.2),
-                      2: FlexColumnWidth(1.8),
-                      3: FlexColumnWidth(1.0),
-                      4: FlexColumnWidth(1.0),
-                      5: FlexColumnWidth(0.8),
-                      6: FlexColumnWidth(1.0),
-                    },
-                    children: [
-                      TableRow(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
+              SizedBox(height: isMobile ? 16 : 24),
+              isMobile
+                  ? contacts.isEmpty
+                      ? Padding(
+                          padding: EdgeInsets.all(isMobile ? 20 : 40),
+                          child: Center(
+                            child: Text(
+                              'No emergency contacts added yet',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: contacts.map((contact) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildMobileContactCard(contact),
+                              )).toList(),
+                        )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: isMobile ? 0 : 800),
+                        child: Table(
+                          columnWidths: const {
+                            0: FlexColumnWidth(1.5),
+                            1: FlexColumnWidth(1.2),
+                            2: FlexColumnWidth(1.8),
+                            3: FlexColumnWidth(1.0),
+                            4: FlexColumnWidth(1.0),
+                            5: FlexColumnWidth(0.8),
+                            6: FlexColumnWidth(1.0),
+                          },
+                          children: [
+                            TableRow(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              children: [
+                                _buildTableHeader('Name', isMobile),
+                                _buildTableHeader('Relationship', isMobile),
+                                _buildTableHeader('Contact', isMobile),
+                                _buildTableHeader('Priority', isMobile),
+                                _buildTableHeader('Methods', isMobile),
+                                _buildTableHeader('Status', isMobile),
+                                _buildTableHeader('Actions', isMobile),
+                              ],
+                            ),
+                            ...contacts.map((contact) => _buildEmergencyContactRow(contact, isMobile)),
+                          ],
                         ),
-                        children: [
-                          _buildTableHeader('Name'),
-                          _buildTableHeader('Relationship'),
-                          _buildTableHeader('Contact'),
-                          _buildTableHeader('Priority'),
-                          _buildTableHeader('Methods'),
-                          _buildTableHeader('Status'),
-                          _buildTableHeader('Actions'),
-                        ],
                       ),
-                      ...contacts.map((contact) => _buildEmergencyContactRow(contact)),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -457,13 +558,86 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildTableHeader(String text) {
+  Widget _buildMobileContactCard(EmergencyContact contact) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  contact.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              _buildContactActionsCell(contact, true),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            contact.relationship,
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.phone, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(contact.phone, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.email, size: 14, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  contact.email,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPriorityBadgeCell(contact.priority, true),
+              ),
+              const SizedBox(width: 8),
+              _buildStatusToggleCell(contact, true),
+              const SizedBox(width: 8),
+              _buildMethodsCell(contact.methods, true),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTableHeader(String text, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 8 : 12),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 13,
+        style: TextStyle(
+          fontSize: isMobile ? 11 : 13,
           fontWeight: FontWeight.w600,
           color: Colors.black54,
         ),
@@ -471,39 +645,43 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildTableCell(String text) {
+  Widget _buildTableCell(String text, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 12 : 16),
       child: Text(
         text,
-        style: const TextStyle(
-          fontSize: 14,
+        style: TextStyle(
+          fontSize: isMobile ? 12 : 14,
           color: Colors.black87,
         ),
       ),
     );
   }
 
-  Widget _buildContactInfoCell(String phone, String email) {
+  Widget _buildContactInfoCell(String phone, String email, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 8 : 16,
+          vertical: isMobile ? 8 : 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             phone,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 14,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
             ),
           ),
           if (email.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: isMobile ? 2 : 4),
             Text(
               email,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: isMobile ? 11 : 12,
                 color: Colors.grey[600],
               ),
             ),
@@ -513,20 +691,24 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildPriorityBadgeCell(String priority) {
+  Widget _buildPriorityBadgeCell(String priority, [bool isMobile = false]) {
     final isPrimary = priority == 'primary';
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 12,
+            vertical: isMobile ? 4 : 6),
         decoration: BoxDecoration(
           color: isPrimary ? Colors.red : const Color(0xFFFF6F00),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
           priority,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: isMobile ? 10 : 12,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -536,19 +718,22 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildMethodsCell(List<dynamic> methods) {
+  Widget _buildMethodsCell(List<dynamic> methods, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (methods.contains('call'))
-            Icon(Icons.phone, size: 18, color: Colors.green[600]),
-          if (methods.contains('call')) const SizedBox(width: 6),
+            Icon(Icons.phone, size: isMobile ? 16 : 18, color: Colors.green[600]),
+          if (methods.contains('call')) SizedBox(width: isMobile ? 4 : 6),
           if (methods.contains('sms'))
-            Icon(Icons.message, size: 18, color: Colors.blue[600]),
-          if (methods.contains('sms')) const SizedBox(width: 6),
+            Icon(Icons.message, size: isMobile ? 16 : 18, color: Colors.blue[600]),
+          if (methods.contains('sms')) SizedBox(width: isMobile ? 4 : 6),
           if (methods.contains('email'))
-            Icon(Icons.email, size: 18, color: Colors.grey[600]),
+            Icon(Icons.email, size: isMobile ? 16 : 18, color: Colors.grey[600]),
         ],
       ),
     );
@@ -747,23 +932,25 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  TableRow _buildEmergencyContactRow(EmergencyContact contact) {
+  TableRow _buildEmergencyContactRow(EmergencyContact contact, [bool isMobile = false]) {
     return TableRow(
       children: [
-        _buildTableCell(contact.name),
-        _buildTableCell(contact.relationship),
-        _buildContactInfoCell(contact.phone, contact.email),
-        _buildPriorityBadgeCell(contact.priority),
-        _buildMethodsCell(contact.methods),
-        _buildStatusToggleCell(contact),
-        _buildContactActionsCell(contact),
+        _buildTableCell(contact.name, isMobile),
+        _buildTableCell(contact.relationship, isMobile),
+        _buildContactInfoCell(contact.phone, contact.email, isMobile),
+        _buildPriorityBadgeCell(contact.priority, isMobile),
+        _buildMethodsCell(contact.methods, isMobile),
+        _buildStatusToggleCell(contact, isMobile),
+        _buildContactActionsCell(contact, isMobile),
       ],
     );
   }
 
-  Widget _buildStatusToggleCell(EmergencyContact contact) {
+  Widget _buildStatusToggleCell(EmergencyContact contact, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 16,
+          vertical: isMobile ? 0 : 12),
       child: Switch(
         value: contact.enabled,
         onChanged: (value) async {
@@ -782,31 +969,41 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
     );
   }
 
-  Widget _buildContactActionsCell(EmergencyContact contact) {
+  Widget _buildContactActionsCell(EmergencyContact contact, [bool isMobile = false]) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 0 : 8,
+          vertical: isMobile ? 0 : 12),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined, size: 20),
+            icon: Icon(Icons.edit_outlined, size: isMobile ? 18 : 20),
             onPressed: () {
               _showContactDialog(context: context, contact: contact);
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 4 : 8),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20),
+            icon: Icon(Icons.delete_outline, size: isMobile ? 18 : 20),
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Delete Contact'),
-                  content: Text('Delete ${contact.name} from emergency contacts?'),
+                  content: Text('Are you sure you want to delete ${contact.name} from emergency contacts? This action cannot be undone.'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('Delete'),
+                    ),
                   ],
                 ),
               );
@@ -964,9 +1161,9 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
   }
 
   Widget _buildStatCard(String title, String value, String subtitle,
-      IconData icon, Color valueColor, Color subtitleColor) {
+      IconData icon, Color valueColor, Color subtitleColor, [bool isMobile = false]) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -988,20 +1185,20 @@ class _AdminDashboardState extends State<AdminDashboard> with TickerProviderStat
               Icon(icon, color: Colors.grey[400], size: 20),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: isMobile ? 10 : 12),
           Text(
             value,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: isMobile ? 24 : 32,
               fontWeight: FontWeight.bold,
               color: valueColor,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               color: subtitleColor,
             ),
           ),

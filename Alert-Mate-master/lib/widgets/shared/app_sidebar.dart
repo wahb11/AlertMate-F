@@ -32,18 +32,18 @@ class AppSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Responsive: collapse sidebar on small screens if enabled
-        final shouldCollapse = isCollapsible && MediaQuery.of(context).size.width < 768;
+        // Check if we're inside a Drawer - if so, always expand
+        final isInDrawer = _isInDrawer(context);
+        // Responsive: collapse sidebar on small screens if enabled, but not if in drawer
+        final shouldCollapse = isCollapsible && !isInDrawer && MediaQuery.of(context).size.width < 768;
         
         return Container(
-          width: shouldCollapse ? 80 : 290,
+          width: shouldCollapse ? 80 : (isInDrawer ? null : 290),
           color: AppColors.surface,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(shouldCollapse),
-              const SizedBox(height: 8),
-              _buildBackButton(context, shouldCollapse),
               const SizedBox(height: 16),
               ...menuItems.asMap().entries.map((entry) {
                 return _buildMenuItem(
@@ -62,6 +62,17 @@ class AppSidebar extends StatelessWidget {
     );
   }
 
+  // Helper to check if we're inside a Drawer widget
+  bool _isInDrawer(BuildContext context) {
+    // Check if we're in a Drawer by looking up the widget tree
+    try {
+      final drawer = context.findAncestorWidgetOfExactType<Drawer>();
+      return drawer != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Widget _buildHeader(bool collapsed) {
     return Padding(
       padding: EdgeInsets.fromLTRB(collapsed ? 12 : 24, 32, collapsed ? 12 : 24, 16),
@@ -69,28 +80,62 @@ class AppSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!collapsed) ...[
-            const Text(
-              'ALERT MATE',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 3,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Drowsiness Detection',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            Row(
+              children: [
+                Image.asset(
+                  'assets/images/Alert Mate.png',
+                  width: 32,
+                  height: 24,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.security,
+                      size: 24,
+                      color: accentColor,
+                    );
+                  },
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ALERT MATE',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Drowsiness Detection',
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
           if (collapsed) ...[
-            const Text(
-              'AM',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
+            Image.asset(
+              'assets/images/Alert Mate.png',
+              width: 32,
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Text(
+                  'AM',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                    color: accentColor,
+                  ),
+                );
+              },
             ),
           ],
           const SizedBox(height: 16),
@@ -111,38 +156,6 @@ class AppSidebar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBackButton(BuildContext context, bool collapsed) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: collapsed ? 12 : 18),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const AuthScreen()),
-          );
-        },
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: collapsed ? 8 : 12, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.arrow_back, size: 18, color: Colors.black87),
-              if (!collapsed) ...[
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Back to Role Selection',
-                    style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -253,11 +266,30 @@ class AppSidebar extends StatelessWidget {
               if (!collapsed) ...[
                 const SizedBox(height: 16),
                 InkWell(
-                  onTap: () {
-                    Navigator.pushReplacement(
-                      context,
-                      FadeScalePageRoute(page: const AuthScreen()),
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Sign Out'),
+                        content: const Text('Are you sure you want to sign out? You will need to sign in again to access your dashboard.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Sign Out'),
+                          ),
+                        ],
+                      ),
                     );
+                    if (confirm == true) {
+                      Navigator.pushReplacement(
+                        context,
+                        FadeScalePageRoute(page: const AuthScreen()),
+                      );
+                    }
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
